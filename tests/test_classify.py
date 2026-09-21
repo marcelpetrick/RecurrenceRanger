@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from recurrence_ranger import classify
+from recurrence_ranger import classify, localmodel
 
 
 def test_relevance_classification_resumes_without_repeating_work(tmp_path, monkeypatch):
@@ -175,3 +175,33 @@ def test_command_line_reports_label_counts(tmp_path, monkeypatch, capsys):
     )
     printed = capsys.readouterr().out
     assert json.loads(printed[printed.index("{\n") :])["labels"] == [["software_instruction", 1]]
+
+
+def test_an_unreachable_endpoint_leaves_prompts_unlabelled(tmp_path, monkeypatch):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
+        db.execute("INSERT INTO prompts VALUES (1,'add tests','human')")
+
+    def dead_endpoint(rows, model, endpoint):
+        raise localmodel.EndpointUnavailable("http://127.0.0.1:1/api/generate did not answer")
+
+    monkeypatch.setattr(classify, "_request", dead_endpoint)
+    with pytest.raises(localmodel.EndpointUnavailable):
+        classify.classify(path)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT COUNT(*) FROM relevance").fetchone() == (0,)
+
+
+def test_the_command_reports_an_unreachable_endpoint(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
+        db.execute("INSERT INTO prompts VALUES (1,'add tests','human')")
+
+    def dead_endpoint(rows, model, endpoint):
+        raise localmodel.EndpointUnavailable("no model listening")
+
+    monkeypatch.setattr(classify, "_request", dead_endpoint)
+    assert classify.main([str(path)]) == 1
+    assert "no model listening" in capsys.readouterr().err

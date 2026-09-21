@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+import sys
 from pathlib import Path
 
 from recurrence_ranger import localmodel
@@ -199,18 +200,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--batch-size", type=int, default=5)
     parser.add_argument("--limit", type=int, default=0)
     args = parser.parse_args(argv)
-    print(
-        json.dumps(
-            classify(
-                args.corpus,
-                model=args.model,
-                endpoint=args.endpoint,
-                batch_size=args.batch_size,
-                limit=args.limit,
-            ),
-            indent=2,
+    try:
+        summary = classify(
+            args.corpus,
+            model=args.model,
+            endpoint=args.endpoint,
+            batch_size=args.batch_size,
+            limit=args.limit,
         )
-    )
+    except localmodel.EndpointUnavailable as error:
+        print(f"recurrence-ranger-classify: {error}", file=sys.stderr)
+        return 1
+    print(json.dumps(summary, indent=2))
     return 0
 
 

@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from recurrence_ranger import extract
+from recurrence_ranger import extract, localmodel
 
 
 def test_extraction_keeps_multiple_rules_and_empty_decisions(tmp_path, monkeypatch):
@@ -147,3 +147,18 @@ def test_a_persistently_failing_prompt_is_recorded_without_themes(monkeypatch):
         2: ([], "model output error: ValueError"),
         3: (["TESTS"], None),
     }
+
+
+def test_an_unreachable_endpoint_stops_extraction(tmp_path, monkeypatch, capsys):
+    path = _corpus_with_prompts(tmp_path / "corpus.sqlite3", [(1, "add tests")])
+
+    def dead_endpoint(rows, model, endpoint):
+        raise localmodel.EndpointUnavailable("no model listening")
+
+    monkeypatch.setattr(extract, "_request", dead_endpoint)
+    with pytest.raises(localmodel.EndpointUnavailable):
+        extract.extract(path)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT COUNT(*) FROM extraction_reviews").fetchone() == (0,)
+    assert extract.main([str(path)]) == 1
+    assert "no model listening" in capsys.readouterr().err

@@ -33,3 +33,35 @@ def test_an_envelope_without_an_answer_is_reported(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     with pytest.raises(KeyError):
         localmodel.generate({}, "http://127.0.0.1:1/api/generate")
+
+
+def test_a_transport_failure_is_retried_then_reported(monkeypatch):
+    attempts = []
+    waits = []
+
+    def failing_urlopen(request, timeout=None):
+        attempts.append(request.full_url)
+        raise urllib.error.URLError("connection refused")
+
+    monkeypatch.setattr(urllib.request, "urlopen", failing_urlopen)
+    monkeypatch.setattr(localmodel.time, "sleep", waits.append)
+    with pytest.raises(localmodel.EndpointUnavailable, match="did not answer after 3 attempts"):
+        localmodel.generate({}, "http://127.0.0.1:1/api/generate")
+    assert len(attempts) == localmodel.TRANSPORT_ATTEMPTS
+    assert waits == [localmodel.BACKOFF_SECONDS, localmodel.BACKOFF_SECONDS * 2]
+
+
+def test_a_recovered_endpoint_answers_after_one_retry(monkeypatch):
+    calls = []
+
+    def flaky_urlopen(request, timeout=None):
+        calls.append(request.full_url)
+        if len(calls) == 1:
+            raise TimeoutError("timed out")
+        body = json.dumps({"response": json.dumps({"labels": ["I"]})}).encode()
+        return contextlib.closing(io.BytesIO(body))
+
+    monkeypatch.setattr(urllib.request, "urlopen", flaky_urlopen)
+    monkeypatch.setattr(localmodel.time, "sleep", lambda _seconds: None)
+    assert localmodel.generate({}, "http://127.0.0.1:1/api/generate") == {"labels": ["I"]}
+    assert len(calls) == 2
