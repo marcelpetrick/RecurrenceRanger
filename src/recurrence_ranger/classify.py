@@ -52,16 +52,22 @@ U = too little context, ambiguous authorship, or impossible to decide.
 Return exactly one code for every input, in the same order, in a JSON labels array. If a short
 follow-up such as 'continue' needs prior conversation context, choose U.
 """
-FORMAT = {
-    "type": "object",
-    "properties": {
-        "labels": {
-            "type": "array",
-            "items": {"type": "string", "enum": list(LABELS)},
-        }
-    },
-    "required": ["labels"],
-}
+
+
+def _format(count: int) -> dict:
+    """Require exactly one label per prompt, so a short answer cannot look like an answer."""
+    return {
+        "type": "object",
+        "properties": {
+            "labels": {
+                "type": "array",
+                "minItems": count,
+                "maxItems": count,
+                "items": {"type": "string", "enum": list(LABELS)},
+            }
+        },
+        "required": ["labels"],
+    }
 
 
 def _request(rows: Sequence[tuple[int, str]], model: str, endpoint: str) -> dict[int, str]:
@@ -72,7 +78,7 @@ def _request(rows: Sequence[tuple[int, str]], model: str, endpoint: str) -> dict
         "prompt": INSTRUCTION + "\n" + json.dumps(items, ensure_ascii=False),
         "stream": False,
         "think": False,
-        "format": FORMAT,
+        "format": _format(len(rows)),
         "options": {
             "temperature": 0,
             "num_ctx": 8192,

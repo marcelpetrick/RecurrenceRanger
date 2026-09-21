@@ -83,6 +83,8 @@ def test_local_request_batches_prompts_and_maps_codes(local_model):
     assert payload["stream"] is False
     assert payload["options"]["temperature"] == 0
     assert payload["format"]["required"] == ["labels"]
+    labels_schema = payload["format"]["properties"]["labels"]
+    assert (labels_schema["minItems"], labels_schema["maxItems"]) == (2, 2)
     items = json.loads(payload["prompt"][payload["prompt"].index("\n[") + 1 :])
     assert [item["id"] for item in items] == [7, 9]
     assert len(items[1]["text"]) == localmodel.item_chars(2)
@@ -235,3 +237,9 @@ def test_concurrent_batches_are_all_recorded(tmp_path, monkeypatch):
 def test_concurrency_must_be_positive(tmp_path):
     with pytest.raises(ValueError, match="concurrency must be positive"):
         classify.classify(tmp_path / "corpus.sqlite3", concurrency=0)
+
+
+def test_the_answer_schema_demands_one_label_per_prompt():
+    schema = classify._format(3)["properties"]["labels"]
+    assert (schema["minItems"], schema["maxItems"]) == (3, 3)
+    assert set(schema["items"]["enum"]) == set(classify.LABELS)

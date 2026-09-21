@@ -67,6 +67,8 @@ def test_local_request_returns_deduplicated_theme_codes(local_model):
     assert themes == {3: ["TESTS", "CI_LOCAL"], 4: []}
     payload = sent[0]["payload"]
     assert payload["options"]["num_predict"] == 400
+    themes_schema = payload["format"]["properties"]["themes"]
+    assert (themes_schema["minItems"], themes_schema["maxItems"]) == (2, 2)
     items = json.loads(payload["prompt"][payload["prompt"].index("\n[") + 1 :])
     assert len(items[1]["text"]) == localmodel.item_chars(2)
 
@@ -184,3 +186,10 @@ def test_concurrent_extraction_records_every_batch(tmp_path, monkeypatch):
 def test_extraction_concurrency_must_be_positive(tmp_path):
     with pytest.raises(ValueError, match="concurrency must be positive"):
         extract.extract(tmp_path / "corpus.sqlite3", concurrency=-1)
+
+
+def test_the_answer_schema_demands_one_theme_list_per_prompt():
+    """An unbounded array let the model answer with none at all for the whole batch."""
+    schema = extract._format(5)["properties"]["themes"]
+    assert (schema["minItems"], schema["maxItems"]) == (5, 5)
+    assert set(schema["items"]["items"]["enum"]) == set(extract.THEMES)

@@ -54,19 +54,29 @@ For example, 'add tests and a README with badges' has TESTS, README, BADGES;
 'move this button left' has no codes. Do not assign COMPLETE to an ordinary
 task request; reserve it for an explicit request to finish all authorized work.
 Codes:\n""" + "\n".join(f"{code}: {description}" for code, description in THEMES.items())
-FORMAT = {
-    "type": "object",
-    "properties": {
-        "themes": {
-            "type": "array",
-            "items": {
+
+
+def _format(count: int) -> dict:
+    """Require exactly one theme list per prompt.
+
+    Without the bounds the schema also accepts an empty array, and the model answers with
+    one: every prompt in the batch then looks unanswered and is split and asked again.
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "themes": {
                 "type": "array",
-                "items": {"type": "string", "enum": list(THEMES)},
-            },
-        }
-    },
-    "required": ["themes"],
-}
+                "minItems": count,
+                "maxItems": count,
+                "items": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": list(THEMES)},
+                },
+            }
+        },
+        "required": ["themes"],
+    }
 
 
 def _request(rows: Sequence[tuple[int, str]], model: str, endpoint: str) -> dict[int, list[str]]:
@@ -77,7 +87,7 @@ def _request(rows: Sequence[tuple[int, str]], model: str, endpoint: str) -> dict
         "prompt": INSTRUCTION + "\nInputs:\n" + json.dumps(items, ensure_ascii=False),
         "stream": False,
         "think": False,
-        "format": FORMAT,
+        "format": _format(len(rows)),
         "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 400},
     }
     values = localmodel.generate(payload, endpoint)["themes"]
