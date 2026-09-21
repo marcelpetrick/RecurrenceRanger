@@ -6,12 +6,15 @@ import pytest
 import versioning
 
 
-def git(root, *args, when=None):
-    """Fixed dates keep the reverse commit order deterministic."""
+def git(root, *args, when=None, check=True):
+    """Carry an identity, because a build machine may have none, and fix the dates.
+
+    Fixed dates keep the reverse commit order deterministic.
+    """
     environment = dict(os.environ)
     if when:
         environment["GIT_AUTHOR_DATE"] = environment["GIT_COMMITTER_DATE"] = when
-    return subprocess.check_output(
+    completed = subprocess.run(
         [
             "git",
             "-c",
@@ -24,8 +27,11 @@ def git(root, *args, when=None):
         ],
         cwd=root,
         text=True,
+        capture_output=True,
+        check=check,
         env=environment,
-    ).strip()
+    )
+    return completed.stdout.strip()
 
 
 def write_version(root, version, *, project=True, package=True):
@@ -130,7 +136,8 @@ def test_check_rejects_a_merge_commit(tmp_path, monkeypatch):
     write_version(root, "0.0.3")
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "master work", when="2026-09-21T00:03:00")
-    subprocess.run(["git", "merge", "--no-commit", "--no-ff", "side"], cwd=root, check=False)
+    # The conflicting VERSION change is resolved below, so the merge stops here.
+    git(root, "merge", "--no-commit", "--no-ff", "side", check=False)
     write_version(root, "0.0.4")
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "merge side", when="2026-09-21T00:04:00")
