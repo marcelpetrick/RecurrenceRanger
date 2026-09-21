@@ -1,0 +1,56 @@
+# -----------------------------------------------------------------------------
+# Recurrence Ranger local pipeline
+#
+# Runs the very same verification that is run locally: ./localpipeline.sh checks
+# the pinned tool versions, formatting, lint, static analysis, every test, a
+# measured coverage report, the gate that requires more than 98% coverage, and
+# the one-patch-per-commit version history. The full history is fetched because
+# that last stage inspects every commit.
+# -----------------------------------------------------------------------------
+name: Local Pipeline
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-pipeline:
+    name: Local pipeline replica
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install the project and its pinned check tools
+        run: python -m pip install -e '.[dev]'
+
+      - name: Run the local pipeline
+        run: ./localpipeline.sh
+
+      - name: Upload the coverage report
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: coverage-json
+          path: coverage.json
+          if-no-files-found: ignore
