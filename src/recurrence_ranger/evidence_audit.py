@@ -23,6 +23,29 @@ PATTERNS = {
     "DEPENDENCIES": r"\bupdatedependencies\b|\bdependenc\w*.{0,50}(?:update|up.to.date|pin)\b",
     "ROBUST": r"\brobust\b",
     "DELEGATE": r"\bsubagents?\b|\bdelegate.{0,70}(?:smaller|lower|lesser)\s+models?\b",
+    # Phrasings observed in the corpus itself, not seeded from the original request.
+    "FINISH_ALL": r"\bget\s+(?:it|this|that|them|all|everything)\b.{0,30}\bdone\b|"
+    r"\bget\s+all\s+done\b|\ball\s+done\b",
+    "PLAN_FIRST": r"\bmake\s+a\s+plan\b|\bplan\s+first\b|\bthen\s+plan\b|\bplan\s+it\b",
+    "SELF_REVIEW": r"\breview\s+(?:yourself|your\s+own|it\s+yourself|your\s+idea)\b|"
+    r"\bself.review\b|\breview\s+your\b",
+    "FIX_ALL_FINDINGS": r"\bfix\s+(?:all|every|each|those|these)\b.{0,40}"
+    r"\b(?:findings?|issues?|comments?|errors?|problems?|bugs?)\b|\bfix\s+all\b",
+    "RELEASE": r"\bpublic\s+release\b|\bmake\s+a\s+release\b|\brelease\s+public\w*\b|"
+    r"\bpush\b.{0,20}\brelease\b",
+    "VERSION_BUMP": r"\bversion\s+bump\w*\b|\bbump\s+(?:the\s+)?version\b|\bsemver\b",
+    "CRISP": r"\bcrisp\b|\bbrief\b|\bconcise\b|\bnot?\s+tons\b|\btoo\s+much\s+text\b",
+    "WATCH_CI": r"\bwatch\b.{0,20}\b(?:ci|pipeline|mr)\b|\bover\s?watch\b|"
+    r"\bcheck\b.{0,25}\bpipeline\b",
+    "MINIMAL_CHANGE": r"\bminimal\s+changes?\b|\bleast\b.{0,25}\bchanges?\b|"
+    r"\bleave\s+the\s+rest\s+alone\b|\bonly\s+th(?:is|ese)\s+file",
+    "EVIDENCE": r"\bgive\s+evidence\b|\bevidence\b|\btestable\b|\bverif(?:y|iable|ied)\b",
+    "PRIVACY_REDACT": r"\bredact\w*\b|\bsensitive\s+(?:information|data|stuff)\b|"
+    r"\b(?:dont|do\s+not|never)\s+disclose\b",
+    "DOCUMENT_DECISION": r"\bdocument\b.{0,25}\b(?:decision|result|findings?|evaluation)\b|"
+    r"\bwrite\b.{0,30}\binto\b.{0,25}\.md\b",
+    "TICKET_TRACE": r"\blink(?:ed)?\b.{0,25}\bticket\b|\bconnect\b.{0,25}\bticket\b|"
+    r"\bclose\w*\b.{0,25}\bticket\b|\bmerge\s+request\b|\bMR\b",
 }
 
 
