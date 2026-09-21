@@ -119,3 +119,25 @@ Implementation details and work packages are in
 standard library at runtime. Test fixtures are synthetic; no real transcript
 belongs in this repository. Commit implementation steps locally with
 conventional messages. Do not push private data.
+
+## Fixed corpus and local relevance triage
+
+Derive an auditable prompt corpus from a consistent private backup, then run
+optional local model triage. The output SQLite file stays outside this repo.
+The corpus records a raw-record watermark and parser version, keeps each source
+occurrence and its exclusion reason, and links near-time transcript/history
+representations of one prompt. Repeated turns remain separate.
+
+```sh
+.venv/bin/python -m recurrence_ranger.corpus \
+  ~/.local/share/recurrence-ranger/acceptance-backup.sqlite3 \
+  ~/.local/share/recurrence-ranger/corpus.sqlite3
+.venv/bin/python -m recurrence_ranger.classify \
+  ~/.local/share/recurrence-ranger/corpus.sqlite3
+```
+
+The classifier uses an installed `qwen3.5:4b` model through local Ollama on
+`127.0.0.1`; its labels are provisional and resumable. It sends no prompt text
+to a remote endpoint. Review uncertain authorship, model decisions, and source
+evidence before writing reusable guidance. Re-deriving the corpus clears old
+model labels because prompt IDs and the watermark may change.
