@@ -1,3 +1,3 @@
 """Private, resumable Claude and Codex conversation capture."""
 
-__version__ = "0.0.32"
+__version__ = "0.0.33"
