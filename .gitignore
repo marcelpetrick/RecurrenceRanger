@@ -10,3 +10,4 @@ __pycache__/
 *.db-*
 backups/
 exports/
+coverage.json

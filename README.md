@@ -73,11 +73,17 @@ enabled. Check the service status and collection lag after startup.
 
 ## Checks, backup, and restore
 
-Run the same local gate used by CI:
+Run the same pipeline that hosted CI runs. It checks formatting, lint, static
+analysis, every test, a measured coverage report, the coverage gate and the
+version history:
 
 ```sh
-./ci.sh
+./localpipeline.sh
 ```
+
+The gate fails unless overall statement and branch coverage is strictly above
+98%. `COVERAGE_MINIMUM` and `COVERAGE_REPORT` override the threshold and the
+report path; the report itself is not committed.
 
 `verify` runs SQLite integrity checking and confirms that captured byte ranges
 are contiguous up to each generation's committed checkpoint. For a consistent
@@ -124,8 +130,8 @@ Every commit advances the patch version by one, beginning at `0.0.1` in the
 root commit. `VERSION` is the history marker; `pyproject.toml` and the package
 `__version__` match it whenever they exist. Before each new commit, run
 `python3 scripts/versioning.py bump` and stage all three version files with the
-work. After committing, `./ci.sh` verifies the complete linear history and
-the package version fields. CI fetches full history for the same check.
+work. After committing, `./localpipeline.sh` verifies the complete linear history
+and the package version fields. CI fetches full history for the same check.
 
 ## Fixed corpus and local relevance triage
 
