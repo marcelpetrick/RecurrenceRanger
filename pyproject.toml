@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "recurrence-ranger"
-version = "0.0.31"
+version = "0.0.32"
 description = "Private local capture of Claude and Codex conversations"
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest==9.1.1", "ruff==0.15.20"]
+dev = ["pytest==9.1.1", "ruff==0.15.20", "coverage==7.16.1", "mypy==2.3.1"]
 
 [project.scripts]
 recurrence-ranger = "recurrence_ranger.cli:main"
@@ -20,7 +20,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "scripts"]
 
 [tool.ruff]
 line-length = 100
@@ -28,3 +28,21 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.coverage.run]
+branch = true
+source = ["src", "scripts"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_also = ["if __name__ == .__main__.:"]
+
+[tool.mypy]
+files = ["src", "scripts"]
+python_version = "3.11"
+check_untyped_defs = true
+disallow_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
