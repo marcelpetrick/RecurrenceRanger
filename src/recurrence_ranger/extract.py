@@ -203,12 +203,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="recurrence-ranger-extract")
     parser.add_argument("corpus", type=Path)
     parser.add_argument("--model", default="qwen3.5:4b")
+    parser.add_argument(
+        "--endpoint",
+        default="http://127.0.0.1:11434/api/generate",
+        help="local Ollama generate endpoint; loopback only",
+    )
     parser.add_argument("--batch-size", type=int, default=5)
     parser.add_argument("--limit", type=int, default=0)
     args = parser.parse_args(argv)
     print(
         json.dumps(
-            extract(args.corpus, model=args.model, batch_size=args.batch_size, limit=args.limit),
+            extract(
+                args.corpus,
+                model=args.model,
+                endpoint=args.endpoint,
+                batch_size=args.batch_size,
+                limit=args.limit,
+            ),
             indent=2,
         )
     )

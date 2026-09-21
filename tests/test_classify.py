@@ -159,6 +159,19 @@ def test_command_line_reports_label_counts(tmp_path, monkeypatch, capsys):
         "_request",
         lambda rows, model, endpoint: {row_id: "software_instruction" for row_id, _ in rows},
     )
-    assert classify.main([str(path), "--batch-size", "2", "--limit", "5"]) == 0
+    assert (
+        classify.main(
+            [
+                str(path),
+                "--batch-size",
+                "2",
+                "--limit",
+                "5",
+                "--endpoint",
+                "http://127.0.0.1:9/api/generate",
+            ]
+        )
+        == 0
+    )
     printed = capsys.readouterr().out
     assert json.loads(printed[printed.index("{\n") :])["labels"] == [["software_instruction", 1]]

@@ -184,7 +184,8 @@ representations of one prompt. Repeated turns remain separate.
 ```
 
 The classifier uses an installed `qwen3.5:4b` model through local Ollama on
-`127.0.0.1`; its labels are provisional and resumable. It sends no prompt text
+`127.0.0.1`; `--model` and `--endpoint` select another local model or port, and
+a non-loopback endpoint is rejected. Its labels are provisional and resumable. It sends no prompt text
 to a remote endpoint. Review uncertain authorship, model decisions, and source
 evidence before writing reusable guidance. The extraction pass tags each
 instruction prompt with zero or more atomic project-expectation themes, and

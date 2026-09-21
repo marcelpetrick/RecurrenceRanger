@@ -117,7 +117,20 @@ def test_command_line_reports_theme_counts(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(
         extract, "_request", lambda rows, model, endpoint: {row_id: ["TESTS"] for row_id, _ in rows}
     )
-    assert extract.main([str(path), "--batch-size", "3", "--limit", "9"]) == 0
+    assert (
+        extract.main(
+            [
+                str(path),
+                "--batch-size",
+                "3",
+                "--limit",
+                "9",
+                "--endpoint",
+                "http://127.0.0.1:9/api/generate",
+            ]
+        )
+        == 0
+    )
     printed = capsys.readouterr().out
     assert json.loads(printed[printed.index("{\n") :])["themes"] == [["TESTS", 1]]
 
