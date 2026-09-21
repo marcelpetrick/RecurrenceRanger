@@ -136,6 +136,8 @@ representations of one prompt. Repeated turns remain separate.
   ~/.local/share/recurrence-ranger/corpus.sqlite3
 .venv/bin/python -m recurrence_ranger.extract \
   ~/.local/share/recurrence-ranger/corpus.sqlite3
+.venv/bin/python -m recurrence_ranger.report \
+  ~/.local/share/recurrence-ranger/corpus.sqlite3
 ```
 
 The classifier uses an installed `qwen3.5:4b` model through local Ollama on
