@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "recurrence-ranger"
-version = "0.0.12"
+version = "0.0.13"
 description = "Private local capture of Claude and Codex conversations"
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pytest==9.1.1", "ruff==0.15.20"]
 
 [project.scripts]
 recurrence-ranger = "recurrence_ranger.cli:main"
