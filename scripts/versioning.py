@@ -20,6 +20,17 @@ def _git(*args: str) -> str:
     return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
 
 
+def _commits() -> list[str]:
+    """Report an unborn branch or unreadable repository as an error, not a traceback."""
+    result = subprocess.run(
+        ["git", "rev-list", "--reverse", "HEAD"], cwd=ROOT, text=True, capture_output=True
+    )
+    if result.returncode:
+        detail = result.stderr.strip().splitlines() or ["git rev-list failed"]
+        raise ValueError(f"no commits to check: {detail[-1]}")
+    return result.stdout.splitlines()
+
+
 def _expected_text(path: Path, text: str, version: str) -> str:
     pattern = PROJECT_PATTERN if path == PROJECT_FILE else PACKAGE_PATTERN
     replacement = f'{"version" if path == PROJECT_FILE else "__version__"} = "{version}"'
@@ -48,9 +59,7 @@ def bump() -> str:
 
 
 def check() -> str:
-    commits = _git("rev-list", "--reverse", "HEAD").splitlines()
-    if not commits:
-        raise ValueError("no commits to check")
+    commits = _commits()
     for number, commit in enumerate(commits, start=1):
         parents = _git("rev-list", "--parents", "-n", "1", commit).split()[1:]
         if len(parents) > 1:

@@ -157,3 +157,12 @@ def test_command_line_bumps_and_checks(tmp_path, monkeypatch, capsys):
     assert versioning.main() == 0
     assert capsys.readouterr().out.strip() == "0.0.3"
     assert (root / "VERSION").read_text() == "0.0.3\n"
+
+
+def test_check_reports_an_unborn_branch_instead_of_crashing(tmp_path, monkeypatch):
+    root = tmp_path / "empty"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "master")
+    monkeypatch.setattr(versioning, "ROOT", root)
+    with pytest.raises(ValueError, match="no commits to check"):
+        versioning.check()
