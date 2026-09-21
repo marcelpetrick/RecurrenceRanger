@@ -24,6 +24,14 @@ Marcel's current ordered work request is:
 4. Stop after the versioning change. Resume guideline analysis only on a later
    request; the private corpus and unfinished model work remain resumable.
 
+The next implementation task after this stop is a `localpipeline` entry point
+for all code changes. It must run formatting and lint checks, static code
+analysis, every test, and a measured coverage report. Its gate must fail unless
+overall coverage is strictly greater than 98%. Hosted CI must run the same
+pipeline, and the tests behind that threshold must exercise real behavior rather
+than mirror the implementation. Record the exact tools, commands, and coverage
+result when this follow-up task is implemented.
+
 ## Objective
 
 Find the software-development guidelines Marcel repeatedly gives AI agents and
