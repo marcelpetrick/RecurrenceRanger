@@ -1,0 +1,12 @@
+[Unit]
+Description=Recurrence Ranger conversation capture
+
+[Service]
+Type=simple
+WorkingDirectory=%h/repos/RecurrenceRanger
+ExecStart=%h/repos/RecurrenceRanger/.venv/bin/recurrence-ranger --manifest %h/repos/RecurrenceRanger/sources.json run --poll-seconds 10
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
