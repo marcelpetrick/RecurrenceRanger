@@ -1,3 +1,5 @@
+from importlib.metadata import version
+
 import tool_versions
 
 
@@ -41,7 +43,7 @@ def test_drift_fails_with_one_line_per_tool(tmp_path, capsys):
     assert tool_versions.main(["--project", str(project)]) == 1
     errors = capsys.readouterr().err.splitlines()
     assert errors == [
-        "tool-versions: ruff: expected 0.0.1, found 0.15.20",
+        f"tool-versions: ruff: expected 0.0.1, found {version('ruff')}",
         "tool-versions: sqlite-nonexistent: expected 1.0, found nothing installed",
     ]
 
