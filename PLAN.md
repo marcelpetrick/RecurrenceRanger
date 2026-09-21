@@ -42,8 +42,11 @@ Marcel's current ordered work request is:
    version matches `VERSION`, `pyproject.toml` and the package, the pipeline
    passes, and the built wheel installs and runs its command. The README shows
    the workflow, release, license, Python, coverage and static-analysis badges,
-   and the project is licensed under GPLv3 or later. Repository visibility and
-   the published release are recorded in the progress report to Marcel.
+   and the project is licensed under GPLv3 or later. On 2026-09-21 the
+   repository was made public and release `v0.0.58` was published by the release
+   workflow with the wheel, the source distribution and the coverage report;
+   Local Pipeline and Quality both pass on `master`. A test run with
+   `publish_release=false` verified the release workflow before publishing.
 
    Guideline analysis stays paused until Marcel requests it.
 
