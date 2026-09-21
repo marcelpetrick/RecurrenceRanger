@@ -27,3 +27,18 @@ def test_relevance_classification_resumes_without_repeating_work(tmp_path, monke
             ("software_instruction",),
             ("nonsoftware",),
         ]
+
+
+def test_bad_model_output_is_isolated_to_one_prompt(monkeypatch):
+    def fake_request(rows, model, endpoint):
+        if any(row_id == 2 for row_id, _ in rows):
+            raise ValueError("bad model output")
+        return {row_id: "software_instruction" for row_id, _ in rows}
+
+    monkeypatch.setattr(classify, "_request", fake_request)
+    labels = classify._classify_rows([(1, "tests"), (2, "hostile text"), (3, "CI")], "m", "e")
+    assert labels == {
+        1: ("software_instruction", None),
+        2: ("uncertain", "model output error: ValueError"),
+        3: ("software_instruction", None),
+    }

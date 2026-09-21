@@ -65,6 +65,20 @@ def _request(rows: list[tuple[int, str]], model: str, endpoint: str) -> dict[int
     return parsed
 
 
+def _classify_rows(
+    rows: list[tuple[int, str]], model: str, endpoint: str
+) -> dict[int, tuple[str, str | None]]:
+    try:
+        return {row_id: (label, None) for row_id, label in _request(rows, model, endpoint).items()}
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError, urllib.error.URLError) as error:
+        if len(rows) == 1:
+            return {rows[0][0]: ("uncertain", f"model output error: {type(error).__name__}")}
+        middle = len(rows) // 2
+        return _classify_rows(rows[:middle], model, endpoint) | _classify_rows(
+            rows[middle:], model, endpoint
+        )
+
+
 def classify(
     path: Path,
     *,
@@ -87,8 +101,11 @@ def classify(
                  prompt_id INTEGER PRIMARY KEY REFERENCES prompts(id),
                  label TEXT NOT NULL, model TEXT NOT NULL,
                  prompt_version INTEGER NOT NULL, classified_at TEXT NOT NULL,
-                 truncated INTEGER NOT NULL DEFAULT 0)"""
+                 truncated INTEGER NOT NULL DEFAULT 0, note TEXT)"""
         )
+        columns = {row[1] for row in db.execute("PRAGMA table_info(relevance)")}
+        if "note" not in columns:
+            db.execute("ALTER TABLE relevance ADD COLUMN note TEXT")
         db.commit()
         total = 0
         while True:
@@ -99,25 +116,19 @@ def classify(
             ).fetchall()
             if not rows:
                 break
-            try:
-                labels = _request(rows, model, endpoint)
-            except (ValueError, KeyError, json.JSONDecodeError, urllib.error.URLError):
-                if len(rows) == 1:
-                    raise
-                # A smaller batch often resolves output-shape or context-limit failures.
-                rows = rows[: max(1, len(rows) // 2)]
-                labels = _request(rows, model, endpoint)
+            labels = _classify_rows(rows, model, endpoint)
             with db:
                 db.executemany(
-                    "INSERT INTO relevance VALUES (?,?,?,?,?,?)",
+                    "INSERT INTO relevance VALUES (?,?,?,?,?,?,?)",
                     [
                         (
                             row_id,
-                            labels[row_id],
+                            labels[row_id][0],
                             model,
                             PROMPT_VERSION,
                             utc_now(),
                             int(len(text) > 6000),
+                            labels[row_id][1],
                         )
                         for row_id, text in rows
                     ],
