@@ -101,6 +101,16 @@ The gate fails unless overall statement and branch coverage is strictly above
 98%. `COVERAGE_MINIMUM` and `COVERAGE_REPORT` override the threshold and the
 report path; the report itself is not committed.
 
+Three GitHub workflows mirror this locally run script:
+
+- **Local Pipeline** runs `./localpipeline.sh` on every push and pull request
+  and keeps the coverage report as an artifact.
+- **Quality** runs the pinned tool check, ruff formatting and lint, and mypy
+  for fast feedback without the test suite.
+- **Manual Release** is started by hand for a chosen version. It only publishes
+  after the version matches every version field, the pipeline passes, and the
+  built wheel installs and runs.
+
 `verify` runs SQLite integrity checking and confirms that captured byte ranges
 are contiguous up to each generation's committed checkpoint. For a consistent
 backup while collection is active:

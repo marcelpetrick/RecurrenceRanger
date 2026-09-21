@@ -36,6 +36,15 @@ Marcel's current ordered work request is:
    - the GPLv3-or-later license and author metadata those repositories use,
    - then push `master`, make the repository public, and publish a release.
 
+   Complete. `local-pipeline.yml` replicates `./localpipeline.sh` and keeps the
+   coverage report, `quality.yml` runs the pinned tool check, ruff and mypy for
+   fast feedback, and `manual-release.yml` publishes only after the requested
+   version matches `VERSION`, `pyproject.toml` and the package, the pipeline
+   passes, and the built wheel installs and runs its command. The README shows
+   the workflow, release, license, Python, coverage and static-analysis badges,
+   and the project is licensed under GPLv3 or later. Repository visibility and
+   the published release are recorded in the progress report to Marcel.
+
    Guideline analysis stays paused until Marcel requests it.
 
 ## Local pipeline and coverage gate
