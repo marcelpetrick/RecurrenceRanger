@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {"label": "Claude", "tool": "claude", "home": "~/.claude"},
+    {"label": "Claude DMO", "tool": "claude", "home": "~/.claude-dmo"},
+    {"label": "Codex", "tool": "codex", "home": "~/.codex"},
+    {"label": "Codex DMO", "tool": "codex", "home": "~/.codex-dmo"}
+  ]
+}

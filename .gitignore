@@ -1,0 +1,12 @@
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage
+*.egg-info/
+.venv/
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+backups/
+exports/
