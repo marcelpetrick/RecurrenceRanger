@@ -155,6 +155,8 @@ def extract(
                    WHERE (r.label='software_instruction' OR c.prompt_id IS NOT NULL)
                    AND x.prompt_id IS NULL
                    AND COALESCE(p.project,'') NOT LIKE '%RecurrenceRanger%'
+                   AND COALESCE(p.project,'') NOT LIKE
+                       '%20260921_MarcelsWishlistForSoftwareProjects%'
                    ORDER BY p.id LIMIT ?""",
                 (min(batch_size, limit - total) if limit else batch_size,),
             ).fetchall()
@@ -188,7 +190,9 @@ def extract(
                    LEFT JOIN extraction_reviews x ON x.prompt_id=p.id
                    WHERE (r.label='software_instruction' OR c.prompt_id IS NOT NULL)
                    AND x.prompt_id IS NULL
-                   AND COALESCE(p.project,'') NOT LIKE '%RecurrenceRanger%'"""
+                   AND COALESCE(p.project,'') NOT LIKE '%RecurrenceRanger%'
+                   AND COALESCE(p.project,'') NOT LIKE
+                       '%20260921_MarcelsWishlistForSoftwareProjects%'"""
             ).fetchone()[0],
         }
     finally:

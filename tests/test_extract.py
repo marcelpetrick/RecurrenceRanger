@@ -10,11 +10,19 @@ def test_extraction_keeps_multiple_rules_and_empty_decisions(tmp_path, monkeypat
         db.execute("CREATE TABLE relevance (prompt_id INTEGER,label TEXT)")
         db.executemany(
             "INSERT INTO prompts VALUES (?,?,?)",
-            [(1, "add tests and CI", "/one"), (2, "move button", "/two")],
+            [
+                (1, "add tests and CI", "/one"),
+                (2, "move button", "/two"),
+                (3, "add README", "/repo/20260921_MarcelsWishlistForSoftwareProjects"),
+            ],
         )
         db.executemany(
             "INSERT INTO relevance VALUES (?,?)",
-            [(1, "software_instruction"), (2, "software_instruction")],
+            [
+                (1, "software_instruction"),
+                (2, "software_instruction"),
+                (3, "software_instruction"),
+            ],
         )
     calls = []
 

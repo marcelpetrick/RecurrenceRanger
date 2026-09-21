@@ -152,3 +152,7 @@ non-instruction label conflicts with an explicit software term, so extraction
 can inspect them too. Its tags also need evidence review. Re-deriving
 the corpus clears old model decisions because prompt IDs and the watermark may
 change.
+
+The active planning conversations for this investigation remain in the private
+corpus but are excluded from guideline evidence, so the seed examples in the
+request cannot prove themselves by repetition.

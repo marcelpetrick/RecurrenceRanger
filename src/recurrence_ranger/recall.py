@@ -30,7 +30,10 @@ def flag(path: Path) -> dict:
         )
         rows = db.execute(
             """SELECT p.id,p.text FROM prompts p JOIN relevance r ON r.prompt_id=p.id
-               WHERE p.authorship='human' AND r.label!='software_instruction'"""
+               WHERE p.authorship='human' AND r.label!='software_instruction'
+               AND COALESCE(p.project,'') NOT LIKE '%RecurrenceRanger%'
+               AND COALESCE(p.project,'') NOT LIKE
+                   '%20260921_MarcelsWishlistForSoftwareProjects%'"""
         )
         found = []
         for row_id, text in rows:
