@@ -6,6 +6,7 @@ import argparse
 import json
 import sqlite3
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 from recurrence_ranger import localmodel
@@ -63,7 +64,7 @@ FORMAT = {
 }
 
 
-def _request(rows: list[tuple[int, str]], model: str, endpoint: str) -> dict[int, str]:
+def _request(rows: Sequence[tuple[int, str]], model: str, endpoint: str) -> dict[int, str]:
     budget = localmodel.item_chars(len(rows))
     items = [{"id": row_id, "text": text[:budget]} for row_id, text in rows]
     payload = {
@@ -85,7 +86,7 @@ def _request(rows: list[tuple[int, str]], model: str, endpoint: str) -> dict[int
 
 
 def _classify_rows(
-    rows: list[tuple[int, str]], model: str, endpoint: str
+    rows: Sequence[tuple[int, str]], model: str, endpoint: str
 ) -> dict[int, tuple[str, str | None]]:
     try:
         return {row_id: (label, None) for row_id, label in _request(rows, model, endpoint).items()}
@@ -123,10 +124,13 @@ def classify(
     endpoint: str = "http://127.0.0.1:11434/api/generate",
     batch_size: int = 5,
     limit: int = 0,
+    concurrency: int = localmodel.DEFAULT_CONCURRENCY,
 ) -> dict:
     localmodel.require_loopback(endpoint, "classification")
     if batch_size < 1:
         raise ValueError("batch size must be positive")
+    if concurrency < 1:
+        raise ValueError("concurrency must be positive")
     path = path.expanduser()
     if not path.is_file():
         raise FileNotFoundError(path)
@@ -146,14 +150,24 @@ def classify(
         fast_count = _apply_fast_labels(db)
         total = 0
         while True:
+            wanted = batch_size * concurrency
             rows = db.execute(
                 """SELECT p.id,p.text FROM prompts p LEFT JOIN relevance r ON r.prompt_id=p.id
                    WHERE p.authorship='human' AND r.prompt_id IS NULL ORDER BY p.id LIMIT ?""",
-                (min(batch_size, limit - total) if limit else batch_size,),
+                (min(wanted, limit - total) if limit else wanted,),
             ).fetchall()
             if not rows:
                 break
-            labels = _classify_rows(rows, model, endpoint)
+            work = localmodel.batches(rows, batch_size)
+            answers = localmodel.map_batches(
+                work, lambda batch: _classify_rows(batch, model, endpoint), concurrency
+            )
+            labels: dict[int, tuple[str, str | None]] = {}
+            truncated: dict[int, int] = {}
+            for batch, answer in zip(work, answers, strict=True):
+                labels.update(answer)
+                budget = localmodel.item_chars(len(batch))
+                truncated.update({row_id: int(len(text) > budget) for row_id, text in batch})
             with db:
                 db.executemany(
                     "INSERT INTO relevance VALUES (?,?,?,?,?,?,?)",
@@ -164,10 +178,10 @@ def classify(
                             model,
                             PROMPT_VERSION,
                             utc_now(),
-                            int(len(text) > localmodel.item_chars(len(rows))),
+                            truncated[row_id],
                             labels[row_id][1],
                         )
-                        for row_id, text in rows
+                        for row_id, _ in rows
                     ],
                 )
             total += len(rows)
@@ -199,6 +213,12 @@ def main(argv: list[str] | None = None) -> int:
         help="local Ollama generate endpoint; loopback only",
     )
     parser.add_argument("--batch-size", type=int, default=5)
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=localmodel.DEFAULT_CONCURRENCY,
+        help="requests answered at once by the local model",
+    )
     parser.add_argument("--limit", type=int, default=0)
     args = parser.parse_args(argv)
     try:
@@ -208,6 +228,7 @@ def main(argv: list[str] | None = None) -> int:
             endpoint=args.endpoint,
             batch_size=args.batch_size,
             limit=args.limit,
+            concurrency=args.concurrency,
         )
     except localmodel.EndpointUnavailable as error:
         print(f"recurrence-ranger-classify: {error}", file=sys.stderr)

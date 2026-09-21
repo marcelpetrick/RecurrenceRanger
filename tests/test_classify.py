@@ -208,3 +208,30 @@ def test_the_command_reports_an_unreachable_endpoint(tmp_path, monkeypatch, caps
     monkeypatch.setattr(classify, "_request", dead_endpoint)
     assert classify.main([str(path)]) == 1
     assert "no model listening" in capsys.readouterr().err
+
+
+def test_concurrent_batches_are_all_recorded(tmp_path, monkeypatch):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
+        db.executemany(
+            "INSERT INTO prompts VALUES (?,?,'human')",
+            [(number, f"add feature {number}") for number in range(1, 9)],
+        )
+    seen = []
+
+    def fake_request(rows, model, endpoint):
+        seen.append(tuple(row_id for row_id, _ in rows))
+        return {row_id: "software_instruction" for row_id, _ in rows}
+
+    monkeypatch.setattr(classify, "_request", fake_request)
+    summary = classify.classify(path, batch_size=2, concurrency=4)
+    assert summary["remaining"] == 0
+    assert sorted(seen) == [(1, 2), (3, 4), (5, 6), (7, 8)]
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT COUNT(*) FROM relevance").fetchone() == (8,)
+
+
+def test_concurrency_must_be_positive(tmp_path):
+    with pytest.raises(ValueError, match="concurrency must be positive"):
+        classify.classify(tmp_path / "corpus.sqlite3", concurrency=0)

@@ -1,6 +1,8 @@
 import contextlib
 import io
 import json
+import threading
+import time
 import urllib.request
 
 import pytest
@@ -73,3 +75,24 @@ def test_the_request_budget_shrinks_with_the_batch():
     assert localmodel.item_chars(5) == localmodel.REQUEST_CHARS // 5
     assert localmodel.item_chars(100) == localmodel.MINIMUM_ITEM_CHARS
     assert localmodel.item_chars(5) * 5 <= localmodel.REQUEST_CHARS
+
+
+def test_rows_are_split_into_batches():
+    assert localmodel.batches([1, 2, 3, 4, 5], 2) == [[1, 2], [3, 4], [5]]
+    assert localmodel.batches([], 3) == []
+
+
+def test_batches_run_serially_or_in_parallel():
+    work = [[1], [2], [3], [4]]
+    assert localmodel.map_batches(work, lambda batch: batch[0] * 10, 1) == [10, 20, 30, 40]
+    threads = set()
+
+    def note_thread(batch):
+        threads.add(threading.current_thread().name)
+        time.sleep(0.05)
+        return batch[0]
+
+    assert localmodel.map_batches(work, note_thread, 4) == [1, 2, 3, 4]
+    assert len(threads) > 1
+    single = localmodel.map_batches([[7]], note_thread, 4)
+    assert single == [7]

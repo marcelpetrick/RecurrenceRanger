@@ -162,3 +162,25 @@ def test_an_unreachable_endpoint_stops_extraction(tmp_path, monkeypatch, capsys)
         assert db.execute("SELECT COUNT(*) FROM extraction_reviews").fetchone() == (0,)
     assert extract.main([str(path)]) == 1
     assert "no model listening" in capsys.readouterr().err
+
+
+def test_concurrent_extraction_records_every_batch(tmp_path, monkeypatch):
+    rows = [(number, f"add tests for {number}") for number in range(1, 7)]
+    path = _corpus_with_prompts(tmp_path / "corpus.sqlite3", rows)
+    seen = []
+
+    def fake_request(rows, model, endpoint):
+        seen.append(tuple(row_id for row_id, _ in rows))
+        return {row_id: ["TESTS"] for row_id, _ in rows}
+
+    monkeypatch.setattr(extract, "_request", fake_request)
+    summary = extract.extract(path, batch_size=2, concurrency=3)
+    assert summary["remaining"] == 0
+    assert sorted(seen) == [(1, 2), (3, 4), (5, 6)]
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT COUNT(*) FROM guideline_occurrences").fetchone() == (6,)
+
+
+def test_extraction_concurrency_must_be_positive(tmp_path):
+    with pytest.raises(ValueError, match="concurrency must be positive"):
+        extract.extract(tmp_path / "corpus.sqlite3", concurrency=-1)

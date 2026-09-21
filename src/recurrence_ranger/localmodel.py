@@ -6,7 +6,9 @@ import json
 import time
 import urllib.error
 import urllib.request
-from typing import Any
+from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, TypeVar
 
 TIMEOUT_SECONDS = 300
 TRANSPORT_ATTEMPTS = 3
@@ -15,6 +17,12 @@ CONTEXT_TOKENS = 8192
 # Roughly four characters per token, leaving room for the instructions and the answer.
 REQUEST_CHARS = 24_000
 MINIMUM_ITEM_CHARS = 1_200
+# Measured on one local GPU: four concurrent requests answer about twice as fast as
+# one, while eight queue up and get slower again.
+DEFAULT_CONCURRENCY = 4
+
+Batch = TypeVar("Batch")
+Result = TypeVar("Result")
 
 
 class EndpointUnavailable(RuntimeError):
@@ -35,6 +43,22 @@ def item_chars(count: int) -> int:
     ask again. Sizing the excerpts to the batch avoids that round trip.
     """
     return max(MINIMUM_ITEM_CHARS, REQUEST_CHARS // count)
+
+
+def batches(rows: Sequence[Batch], size: int) -> list[Sequence[Batch]]:
+    return [rows[start : start + size] for start in range(0, len(rows), size)]
+
+
+def map_batches(
+    work: Sequence[Sequence[Batch]],
+    worker: Callable[[Sequence[Batch]], Result],
+    concurrency: int,
+) -> list[Result]:
+    """Answer several batches at once; the caller keeps all database writes to itself."""
+    if concurrency == 1 or len(work) == 1:
+        return [worker(batch) for batch in work]
+    with ThreadPoolExecutor(max_workers=min(concurrency, len(work))) as pool:
+        return list(pool.map(worker, work))
 
 
 def generate(payload: dict, endpoint: str) -> Any:
