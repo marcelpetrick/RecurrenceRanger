@@ -66,8 +66,8 @@ on 2026-09-22 with Python 3.14.7:
 
 The gate compares the measured percentage strictly, so exactly 98% fails.
 `COVERAGE_MINIMUM` and `COVERAGE_REPORT` override the threshold and report path.
-The measured result is 100% of 1,069 statements and 332 branches across `src`
-and `scripts`, from 105 tests; the report file itself is not committed. The
+The measured result is 100% of 1,071 statements and 332 branches across `src`
+and `scripts`, from 107 tests; the report file itself is not committed. The
 first stage fails when an installed tool drifts from its pin, so a local run
 and a CI run check the same code with the same tools.
 
@@ -78,6 +78,14 @@ service, and canned local-model answers so no prompt text and no network call
 leaves the machine. Two defects surfaced while covering these paths: the version
 check crashed on a repository without commits, and the collector command
 dispatch had an unreachable branch. Both are fixed in their own commits.
+
+Unit tests cover each module directly. Two end-to-end tests run the shipped
+commands as separate processes over a synthetic two-profile home: the first goes
+from inventory through backfill, a later scan, status, verify, backup,
+restore-check, corpus derivation, the report and the evidence audit; the second
+answers the model stages from a real loopback HTTP server on an ephemeral port
+and checks the resulting theme evidence. Both assert private file permissions
+and that no prompt text appears in diagnostic output.
 
 ## Objective
 
