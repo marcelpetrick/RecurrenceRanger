@@ -1,5 +1,15 @@
 # Recurrence Ranger
 
+[![Local Pipeline](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/local-pipeline.yml/badge.svg?branch=master)](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/local-pipeline.yml)
+[![Quality](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/quality.yml/badge.svg?branch=master)](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/quality.yml)
+[![Manual Release](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/manual-release.yml/badge.svg)](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/manual-release.yml)
+[![Latest Release](https://img.shields.io/github/v/release/marcelpetrick/RecurrenceRanger?sort=semver)](https://github.com/marcelpetrick/RecurrenceRanger/releases/latest)
+[![License: GPL v3 or later](https://img.shields.io/badge/license-GPLv3%20or%20later-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab.svg)](https://www.python.org/)
+[![Coverage: 100%](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](localpipeline.sh)
+[![Checked with mypy](https://img.shields.io/badge/mypy-checked-2a6db2.svg)](https://mypy-lang.org/)
+[![Linted with ruff](https://img.shields.io/badge/ruff-linted-d7ff64.svg)](https://docs.astral.sh/ruff/)
+
 Recurrence Ranger keeps a private, reusable SQLite copy of local Claude and
 Codex conversation records. It captures retained history and polls for new
 records while backfill is still running. The database preserves original JSONL
