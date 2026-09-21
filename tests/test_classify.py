@@ -1,4 +1,7 @@
+import json
 import sqlite3
+
+import pytest
 
 from recurrence_ranger import classify
 
@@ -64,3 +67,98 @@ def test_exact_short_inputs_skip_the_model(tmp_path, monkeypatch):
             ("nonsoftware",),
             ("uncertain",),
         ]
+
+
+def test_local_request_batches_prompts_and_maps_codes(local_model):
+    sent = local_model({"labels": ["I", "N"]})
+    labels = classify._request(
+        [(7, "add tests"), (9, "x" * 7000)],
+        "qwen3.5:4b",
+        "http://127.0.0.1:11434/api/generate",
+    )
+    assert labels == {7: "software_instruction", 9: "nonsoftware"}
+    payload = sent[0]["payload"]
+    assert sent[0]["url"] == "http://127.0.0.1:11434/api/generate"
+    assert payload["model"] == "qwen3.5:4b"
+    assert payload["stream"] is False
+    assert payload["options"]["temperature"] == 0
+    assert payload["format"]["required"] == ["labels"]
+    items = json.loads(payload["prompt"][payload["prompt"].index("\n[") + 1 :])
+    assert [item["id"] for item in items] == [7, 9]
+    assert len(items[1]["text"]) == 6000
+
+
+def test_a_short_label_list_is_rejected(local_model):
+    local_model({"labels": ["I"]})
+    with pytest.raises(ValueError, match="wrong number of labels"):
+        classify._request(
+            [(1, "one"), (2, "two")], "qwen3.5:4b", "http://127.0.0.1:11434/api/generate"
+        )
+
+
+def test_truncated_prompts_are_recorded_as_truncated(tmp_path, local_model):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
+        db.execute("INSERT INTO prompts VALUES (1,?,'human')", ("y" * 6001,))
+    local_model({"labels": ["I"]})
+    assert classify.classify(path)["classified_this_run"] == 1
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT truncated FROM relevance").fetchone() == (1,)
+
+
+def test_classification_stops_at_the_requested_limit(tmp_path, monkeypatch):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
+        db.executemany(
+            "INSERT INTO prompts VALUES (?,?,'human')", [(1, "add tests"), (2, "add CI")]
+        )
+    monkeypatch.setattr(
+        classify,
+        "_request",
+        lambda rows, model, endpoint: {row_id: "software_instruction" for row_id, _ in rows},
+    )
+    summary = classify.classify(path, batch_size=1, limit=1)
+    assert (summary["classified_this_run"], summary["remaining"]) == (1, 1)
+
+
+def test_an_older_relevance_table_gains_the_note_column(tmp_path, monkeypatch):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
+        db.execute(
+            """CREATE TABLE relevance (
+                 prompt_id INTEGER PRIMARY KEY, label TEXT NOT NULL, model TEXT NOT NULL,
+                 prompt_version INTEGER NOT NULL, classified_at TEXT NOT NULL,
+                 truncated INTEGER NOT NULL DEFAULT 0)"""
+        )
+        db.execute("INSERT INTO prompts VALUES (1,'/exit','human')")
+    monkeypatch.setattr(classify, "_request", lambda *args: {})
+    assert classify.classify(path)["exact_short_inputs"] == 1
+    with sqlite3.connect(path) as db:
+        assert "note" in {row[1] for row in db.execute("PRAGMA table_info(relevance)")}
+
+
+def test_classification_rejects_unsafe_settings_and_missing_corpora(tmp_path):
+    with pytest.raises(ValueError, match="local loopback"):
+        classify.classify(tmp_path / "corpus.sqlite3", endpoint="http://example.com/api/generate")
+    with pytest.raises(ValueError, match="batch size"):
+        classify.classify(tmp_path / "corpus.sqlite3", batch_size=0)
+    with pytest.raises(FileNotFoundError):
+        classify.classify(tmp_path / "missing.sqlite3")
+
+
+def test_command_line_reports_label_counts(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
+        db.execute("INSERT INTO prompts VALUES (1,'add tests','human')")
+    monkeypatch.setattr(
+        classify,
+        "_request",
+        lambda rows, model, endpoint: {row_id: "software_instruction" for row_id, _ in rows},
+    )
+    assert classify.main([str(path), "--batch-size", "2", "--limit", "5"]) == 0
+    printed = capsys.readouterr().out
+    assert json.loads(printed[printed.index("{\n") :])["labels"] == [["software_instruction", 1]]
