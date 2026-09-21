@@ -135,6 +135,7 @@ def derive(source_path: Path, output_path: Path, watermark: int | None = None) -
                 # Derived labels are tied to prompt IDs and this exact watermark.
                 output.execute("DROP TABLE IF EXISTS guideline_occurrences")
                 output.execute("DROP TABLE IF EXISTS extraction_reviews")
+                output.execute("DROP TABLE IF EXISTS recall_candidates")
                 output.execute("DROP TABLE IF EXISTS relevance")
                 output.execute("DELETE FROM occurrences")
                 output.execute("DELETE FROM prompts")

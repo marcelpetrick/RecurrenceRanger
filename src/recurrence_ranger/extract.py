@@ -139,14 +139,21 @@ def extract(
                  prompt_id INTEGER NOT NULL REFERENCES prompts(id), theme TEXT NOT NULL,
                  PRIMARY KEY(prompt_id,theme))"""
         )
+        db.execute(
+            """CREATE TABLE IF NOT EXISTS recall_candidates (
+                 prompt_id INTEGER PRIMARY KEY REFERENCES prompts(id),
+                 matched_term TEXT NOT NULL, rule_version INTEGER NOT NULL)"""
+        )
         db.commit()
         total = 0
         while True:
             rows = db.execute(
                 """SELECT p.id,p.text FROM prompts p
                    JOIN relevance r ON r.prompt_id=p.id
+                   LEFT JOIN recall_candidates c ON c.prompt_id=p.id
                    LEFT JOIN extraction_reviews x ON x.prompt_id=p.id
-                   WHERE r.label='software_instruction' AND x.prompt_id IS NULL
+                   WHERE (r.label='software_instruction' OR c.prompt_id IS NOT NULL)
+                   AND x.prompt_id IS NULL
                    AND COALESCE(p.project,'') NOT LIKE '%RecurrenceRanger%'
                    ORDER BY p.id LIMIT ?""",
                 (min(batch_size, limit - total) if limit else batch_size,),
@@ -177,8 +184,10 @@ def extract(
             ).fetchall(),
             "remaining": db.execute(
                 """SELECT COUNT(*) FROM prompts p JOIN relevance r ON r.prompt_id=p.id
+                   LEFT JOIN recall_candidates c ON c.prompt_id=p.id
                    LEFT JOIN extraction_reviews x ON x.prompt_id=p.id
-                   WHERE r.label='software_instruction' AND x.prompt_id IS NULL
+                   WHERE (r.label='software_instruction' OR c.prompt_id IS NOT NULL)
+                   AND x.prompt_id IS NULL
                    AND COALESCE(p.project,'') NOT LIKE '%RecurrenceRanger%'"""
             ).fetchone()[0],
         }

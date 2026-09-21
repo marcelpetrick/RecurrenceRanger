@@ -134,6 +134,8 @@ representations of one prompt. Repeated turns remain separate.
   ~/.local/share/recurrence-ranger/corpus.sqlite3
 .venv/bin/python -m recurrence_ranger.classify \
   ~/.local/share/recurrence-ranger/corpus.sqlite3
+.venv/bin/python -m recurrence_ranger.recall \
+  ~/.local/share/recurrence-ranger/corpus.sqlite3
 .venv/bin/python -m recurrence_ranger.extract \
   ~/.local/share/recurrence-ranger/corpus.sqlite3
 .venv/bin/python -m recurrence_ranger.report \
@@ -145,6 +147,8 @@ The classifier uses an installed `qwen3.5:4b` model through local Ollama on
 to a remote endpoint. Review uncertain authorship, model decisions, and source
 evidence before writing reusable guidance. The extraction pass tags each
 instruction prompt with zero or more atomic project-expectation themes, and
-records empty decisions as well. Its tags also need evidence review. Re-deriving
+records empty decisions as well. The recall pass flags prompts where a model
+non-instruction label conflicts with an explicit software term, so extraction
+can inspect them too. Its tags also need evidence review. Re-deriving
 the corpus clears old model decisions because prompt IDs and the watermark may
 change.
