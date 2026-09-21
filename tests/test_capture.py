@@ -139,3 +139,146 @@ def test_live_file_receives_time_during_backfill(tmp_path):
         collector.scan_once([source], max_files=2)
     assert store.db.execute("SELECT COUNT(*) FROM raw_records").fetchone()[0] == 6
     store.close()
+
+
+def test_an_empty_file_is_tracked_without_records(tmp_path):
+    source, path, store, collector = setup(tmp_path)
+    path.write_bytes(b"")
+    result = collector.scan_file(source, path)
+    assert (result.records, result.pending, result.errors) == (0, 0, 0)
+    assert store.db.execute("SELECT checkpoint,fingerprint FROM generations").fetchone() == (0, "")
+    store.close()
+
+
+def test_a_rewritten_prefix_starts_a_new_generation(tmp_path):
+    source, path, store, collector = setup(tmp_path)
+    path.write_bytes(line(claude_message("original", "one")))
+    assert collector.scan_file(source, path).records == 1
+    rewritten = line(claude_message("changed!", "one"))
+    assert len(rewritten) == len(line(claude_message("original", "one")))
+    path.write_bytes(rewritten)
+    assert collector.scan_file(source, path).records == 1
+    assert store.db.execute("SELECT reason FROM generations ORDER BY number").fetchall() == [
+        ("first observation",),
+        ("committed prefix changed",),
+    ]
+    assert store.db.execute("SELECT COUNT(*) FROM raw_records").fetchone()[0] == 2
+    store.close()
+
+
+def test_an_oversized_record_is_reported_without_advancing(tmp_path, monkeypatch):
+    source, path, store, collector = setup(tmp_path)
+    monkeypatch.setattr("recurrence_ranger.capture.MAX_RECORD_BYTES", 32)
+    path.write_bytes(line(claude_message("far too long for the reduced record limit")))
+    assert collector.scan_file(source, path).errors == 1
+    assert store.db.execute("SELECT COUNT(*) FROM raw_records").fetchone() == (0,)
+    assert store.db.execute("SELECT COUNT(*) FROM generations").fetchone() == (0,)
+    detail = store.db.execute("SELECT stage,detail FROM errors").fetchone()
+    assert detail[0] == "capture"
+    assert "exceeds 32 bytes" in detail[1]
+    monkeypatch.undo()
+    assert collector.scan_file(source, path).records == 1
+    store.close()
+
+
+def test_a_byte_budget_splits_one_file_across_scans(tmp_path):
+    source, path, store, collector = setup(tmp_path)
+    path.write_bytes(line(claude_message("first", "one")) + line(claude_message("second", "two")))
+    assert collector.scan_file(source, path, budget=1).records == 1
+    assert collector.scan_file(source, path, budget=1).records == 1
+    assert collector.scan_file(source, path, budget=1).records == 0
+    assert store.db.execute("SELECT COUNT(*) FROM raw_records").fetchone()[0] == 2
+    store.close()
+
+
+def test_a_partly_captured_file_is_selected_again(tmp_path):
+    source, path, store, _ = setup(tmp_path)
+    collector = Collector(store, file_budget=1)
+    path.write_bytes(line(claude_message("first", "one")) + line(claude_message("second", "two")))
+    assert collector.scan_once([source]).records == 1
+    assert collector.scan_once([source]).records == 1
+    assert collector.scan_once([source]).records == 0
+    store.close()
+
+
+def test_a_stale_checkpoint_does_not_duplicate_records(tmp_path):
+    source, path, store, collector = setup(tmp_path)
+    path.write_bytes(line(claude_message("first", "one")) + line(claude_message("second", "two")))
+    assert collector.scan_file(source, path).records == 2
+    with store.db:
+        store.db.execute("UPDATE generations SET checkpoint=0,fingerprint=''")
+    result = collector.scan_file(source, path)
+    assert (result.records, result.errors) == (0, 0)
+    assert store.db.execute("SELECT COUNT(*) FROM raw_records").fetchone()[0] == 2
+    assert store.db.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 2
+    store.close()
+
+
+def test_a_failure_to_record_a_failure_still_reports_the_error(tmp_path):
+    source, path, store, collector = setup(tmp_path)
+    path.write_bytes(line(claude_message("first")))
+    store.db.execute("""CREATE TRIGGER reject_record BEFORE INSERT ON raw_records
+                        BEGIN SELECT RAISE(ABORT, 'simulated disk failure'); END""")
+    store.db.execute("""CREATE TRIGGER reject_error BEFORE INSERT ON errors
+                        BEGIN SELECT RAISE(ABORT, 'simulated error table failure'); END""")
+    assert collector.scan_file(source, path).errors == 1
+    assert store.db.execute("SELECT COUNT(*) FROM errors").fetchone()[0] == 0
+    store.close()
+
+
+def test_one_open_error_is_not_recorded_twice(tmp_path):
+    source, path, store, collector = setup(tmp_path)
+    path.write_bytes(line(claude_message("first")))
+    store.db.execute("""CREATE TRIGGER reject_record BEFORE INSERT ON raw_records
+                        BEGIN SELECT RAISE(ABORT, 'simulated disk failure'); END""")
+    assert collector.scan_file(source, path).errors == 1
+    assert collector.scan_file(source, path).errors == 1
+    assert store.db.execute("SELECT COUNT(*) FROM errors").fetchone()[0] == 1
+    store.db.execute("DROP TRIGGER reject_record")
+    assert collector.scan_file(source, path).records == 1
+    assert store.db.execute("SELECT COUNT(*) FROM errors WHERE resolved_at IS NULL").fetchone() == (
+        0,
+    )
+    store.close()
+
+
+def test_an_unreadable_path_is_reported_during_a_scan(tmp_path):
+    source, path, store, collector = setup(tmp_path)
+    path.write_bytes(line(claude_message("first")))
+    (path.parent / "dangling.jsonl").symlink_to(tmp_path / "gone.jsonl")
+    result = collector.scan_once([source])
+    assert (result.records, result.errors) == (1, 1)
+    assert store.db.execute("SELECT stage FROM errors").fetchone() == ("stat",)
+    store.close()
+
+
+def test_a_deleted_file_is_marked_missing_and_its_tail_abandoned(tmp_path):
+    source, path, store, collector = setup(tmp_path)
+    complete = line(claude_message("first"))
+    path.write_bytes(complete + b'{"unfinished":')
+    assert collector.scan_once([source]).pending == 1
+    path.unlink()
+    collector.scan_once([source])
+    assert store.db.execute("SELECT missing FROM files").fetchone() == (1,)
+    assert store.db.execute("SELECT status FROM pending_fragments").fetchone() == ("abandoned",)
+    collector.scan_once([source])
+    assert store.db.execute("SELECT COUNT(*) FROM files WHERE missing=1").fetchone() == (1,)
+    store.close()
+
+
+def test_a_file_row_without_a_generation_is_marked_missing(tmp_path):
+    """A crash can leave a file row behind before any generation was committed."""
+    source, path, store, collector = setup(tmp_path)
+    path.write_bytes(line(claude_message("first")))
+    collector.scan_once([source])
+    with store.db:
+        store.db.execute(
+            "INSERT INTO files(source_id,path,last_seen) VALUES (?,?,?)",
+            (source.id, str(path.parent / "vanished.jsonl"), "now"),
+        )
+    collector.scan_once([source])
+    assert store.db.execute(
+        "SELECT missing FROM files WHERE path LIKE '%vanished.jsonl'"
+    ).fetchone() == (1,)
+    assert store.db.execute("SELECT COUNT(*) FROM pending_fragments").fetchone() == (0,)
+    store.close()
