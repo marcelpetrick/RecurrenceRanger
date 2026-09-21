@@ -215,7 +215,8 @@ def main(argv: list[str] | None = None) -> int:
                 result = _verify(store)
                 print(json.dumps(result, indent=2))
                 return 0 if result["integrity"] == "ok" and not result["checkpoint_gaps"] else 1
-            elif args.command == "backup":
+            else:
+                # The parser accepts no other command that reaches this point.
                 store.backup(args.target)
                 print(json.dumps({"backup": str(args.target)}))
             return 0
