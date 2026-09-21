@@ -9,6 +9,7 @@ else
   PYTEST=pytest
 fi
 
-"$RUFF" check src tests
-"$RUFF" format --check src tests
+"$RUFF" check src tests scripts
+"$RUFF" format --check src tests scripts
 "$PYTEST" -q
+python3 scripts/versioning.py check

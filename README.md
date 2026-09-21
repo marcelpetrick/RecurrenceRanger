@@ -120,6 +120,13 @@ standard library at runtime. Test fixtures are synthetic; no real transcript
 belongs in this repository. Commit implementation steps locally with
 conventional messages. Do not push private data.
 
+Every commit advances the patch version by one, beginning at `0.0.1` in the
+root commit. `VERSION` is the history marker; `pyproject.toml` and the package
+`__version__` match it whenever they exist. Before each new commit, run
+`python3 scripts/versioning.py bump` and stage all three version files with the
+work. After committing, `./ci.sh` verifies the complete linear history and
+the package version fields. CI fetches full history for the same check.
+
 ## Fixed corpus and local relevance triage
 
 Derive an auditable prompt corpus from a consistent private backup, then run
