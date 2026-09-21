@@ -83,15 +83,17 @@ def _seconds(value: str | None) -> float | None:
         return None
 
 
-def _decision(candidate: Candidate, raw: bytes) -> tuple[str, str]:
+def _decision(candidate: Candidate, raw: bytes | None) -> tuple[str, str]:
     text = candidate.text
     if candidate.session_origin == "subagent":
         return "excluded", "Codex subagent task"
     if candidate.session_origin == "exec":
         return "excluded", "automated Codex exec session"
     if candidate.tool == "claude" and candidate.kind == "user":
+        # Only these records carry the flags that decide authorship, so the derivation
+        # reads the stored bytes for them alone.
         try:
-            record = json.loads(raw)
+            record = json.loads(raw or b"")
         except (UnicodeError, json.JSONDecodeError):
             return "uncertain", "raw record cannot be parsed"
         if record.get("toolUseResult") is not None:
@@ -176,7 +178,8 @@ def derive(source_path: Path, output_path: Path, watermark: int | None = None) -
                 )
                 rows = source.execute(
                     """SELECT r.id,s.label,s.tool,x.source_session_id,m.kind,m.timestamp,
-                              COALESCE(m.project,x.project),m.text,r.data
+                              COALESCE(m.project,x.project),m.text,
+                              CASE WHEN s.tool='claude' AND m.kind='user' THEN r.data END
                        FROM messages m JOIN raw_records r ON r.id=m.record_id
                        JOIN sessions x ON x.id=m.session_id
                        JOIN sources s ON s.id=x.source_id
