@@ -198,7 +198,10 @@ records empty decisions as well. The recall pass flags prompts where a model
 non-instruction label conflicts with an explicit software term, so extraction
 can inspect them too. Its tags also need evidence review. Re-deriving
 the corpus clears old model decisions because prompt IDs and the watermark may
-change.
+change. `--carry-labels` keeps them for every prompt whose profile, session and
+text are unchanged, so a new watermark does not cost another full model run;
+prompts that are new, edited or only partly processed stay open for the next
+resumable run.
 
 The active planning conversations for this investigation remain in the private
 corpus but are excluded from guideline evidence, so the seed examples in the

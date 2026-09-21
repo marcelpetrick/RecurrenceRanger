@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import cast
 
+from recurrence_ranger import derived
 from recurrence_ranger.normalize import PARSER_VERSION
 from recurrence_ranger.store import utc_now
 
@@ -121,8 +122,81 @@ def _decision(candidate: Candidate, raw: bytes | None) -> tuple[str, str]:
     return "human", "prompt-oriented source record"
 
 
-def derive(source_path: Path, output_path: Path, watermark: int | None = None) -> dict:
-    """Replace a private derived database; the source is opened read-only."""
+def _previous_decisions(output: sqlite3.Connection) -> dict[tuple[str, str, str], dict]:
+    """Read the model decisions of an earlier derivation, keyed by what identifies a prompt.
+
+    Prompt ids belong to one derivation, so decisions are carried by profile, session and
+    exact prompt text instead. Nothing is carried for a prompt whose text changed.
+    """
+    tables = {row[0] for row in output.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if "prompts" not in tables or "relevance" not in tables:
+        return {}
+    carried: dict[tuple[str, str, str], dict] = {}
+    for profile, session, prompt_text, *decision in output.execute(
+        """SELECT p.profile,p.session,p.text,r.label,r.model,r.prompt_version,r.classified_at,
+                  r.truncated,r.note
+           FROM prompts p JOIN relevance r ON r.prompt_id=p.id"""
+    ):
+        carried[(profile, session, prompt_text)] = {"relevance": tuple(decision)}
+    if "extraction_reviews" not in tables:
+        return carried
+    for profile, session, prompt_text, *review in output.execute(
+        """SELECT p.profile,p.session,p.text,x.model,x.extractor_version,x.reviewed_at,x.note
+           FROM prompts p JOIN extraction_reviews x ON x.prompt_id=p.id"""
+    ):
+        entry = carried.setdefault((profile, session, prompt_text), {})
+        entry["review"] = tuple(review)
+    if "guideline_occurrences" not in tables:
+        return carried
+    for profile, session, prompt_text, theme in output.execute(
+        """SELECT p.profile,p.session,p.text,g.theme
+           FROM prompts p JOIN guideline_occurrences g ON g.prompt_id=p.id"""
+    ):
+        entry = carried.setdefault((profile, session, prompt_text), {})
+        entry.setdefault("themes", []).append(theme)
+    return carried
+
+
+def _carry(output: sqlite3.Connection, decisions: dict[tuple[str, str, str], dict]) -> int:
+    """Re-attach carried decisions to the prompts of the new derivation."""
+    if not decisions:
+        return 0
+    derived.create(output, *derived.MODEL_TABLES)
+    carried = 0
+    for prompt_id, profile, session, prompt_text in output.execute(
+        "SELECT id,profile,session,text FROM prompts"
+    ).fetchall():
+        entry = decisions.get((profile, session, prompt_text))
+        if not entry or "relevance" not in entry:
+            continue
+        output.execute(
+            "INSERT INTO relevance VALUES (?,?,?,?,?,?,?)", (prompt_id, *entry["relevance"])
+        )
+        carried += 1
+        if "review" in entry:
+            output.execute(
+                "INSERT INTO extraction_reviews VALUES (?,?,?,?,?)", (prompt_id, *entry["review"])
+            )
+            output.executemany(
+                "INSERT INTO guideline_occurrences VALUES (?,?)",
+                [(prompt_id, theme) for theme in entry.get("themes", ())],
+            )
+    return carried
+
+
+def derive(
+    source_path: Path,
+    output_path: Path,
+    watermark: int | None = None,
+    *,
+    carry_labels: bool = False,
+) -> dict:
+    """Replace a private derived database; the source is opened read-only.
+
+    With carry_labels the model decisions of an earlier derivation are re-attached to
+    prompts whose profile, session and text are unchanged, so a new watermark does not
+    cost another full model run.
+    """
     source_path = source_path.expanduser().resolve()
     output_path = output_path.expanduser().resolve()
     if source_path == output_path:
@@ -161,6 +235,7 @@ def derive(source_path: Path, output_path: Path, watermark: int | None = None) -
         try:
             output_path.chmod(0o600)
             output.execute("PRAGMA foreign_keys=ON")
+            previous = _previous_decisions(output) if carry_labels else {}
             output.executescript(SCHEMA)
             with output:
                 # Derived labels are tied to prompt IDs and this exact watermark.
@@ -251,9 +326,11 @@ def derive(source_path: Path, output_path: Path, watermark: int | None = None) -
                             prompt_id,
                         ),
                     )
+                carried = _carry(output, previous)
             return {
                 "watermark": watermark,
                 "parser_version": PARSER_VERSION,
+                "carried_decisions": carried,
                 "occurrences": output.execute(
                     "SELECT decision,COUNT(*) FROM occurrences GROUP BY decision ORDER BY decision"
                 ).fetchall(),
@@ -273,8 +350,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("source", type=Path, help="captured SQLite database or fixed backup")
     parser.add_argument("output", type=Path, help="private derived SQLite database")
     parser.add_argument("--watermark", type=int)
+    parser.add_argument(
+        "--carry-labels",
+        action="store_true",
+        help="keep model decisions for prompts whose profile, session and text are unchanged",
+    )
     args = parser.parse_args(argv)
-    print(json.dumps(derive(args.source, args.output, args.watermark), indent=2))
+    print(
+        json.dumps(
+            derive(args.source, args.output, args.watermark, carry_labels=args.carry_labels),
+            indent=2,
+        )
+    )
     return 0
 
 

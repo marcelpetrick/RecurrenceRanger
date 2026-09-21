@@ -34,7 +34,8 @@ Ranked by impact. Every fix has its own commit and its own tests.
 | 5 | Medium (robustness) | The version-history check ran `git rev-list HEAD` directly, so a repository without commits failed with a `CalledProcessError` traceback instead of the script's own error. | Report it as a `ValueError` like every other verification failure. |
 | 6 | Medium (robustness) | The pipeline used whichever ruff, mypy, pytest and coverage happened to be importable, so a local run could check the code with different tools than CI. This had already happened once with an unusable mypy in the user site. | `scripts/tool_versions.py` compares installed versions against the pinned development extra and fails with one line per drift. |
 | 7 | Low (testability) | The collector command dispatch ended in a condition the argument parser already excluded, so its fall-through could never run or be tested. | Handle backup as the remaining case. |
-| 8 | Low (portability) | One test called `git` without an identity, so it failed on machines without a global git configuration. GitHub Actions found this on the first hosted run. | Route it through the helper that carries the test identity. Verified with `GIT_CONFIG_GLOBAL=/dev/null`. |
+| 8 | Medium (cost) | Re-deriving the corpus dropped every model decision, so including newer sessions meant paying for the whole triage and extraction again — hours of local model time. | `--carry-labels` re-attaches decisions to prompts whose profile, session and text are unchanged. New, edited and partly processed prompts stay open for the next resumable run. |
+| 9 | Low (portability) | One test called `git` without an identity, so it failed on machines without a global git configuration. GitHub Actions found this on the first hosted run. | Route it through the helper that carries the test identity. Verified with `GIT_CONFIG_GLOBAL=/dev/null`. |
 
 ## Workflow level: what makes the whole run faster
 
@@ -58,10 +59,6 @@ roughly 50 min, without changing any decision the pipeline records.
 
 ## Deliberately not done
 
-- **Carrying model labels across a re-derivation.** Re-deriving clears labels because prompt
-  identity depends on the watermark. Keying labels by profile, session and exact prompt text
-  would preserve most of an hour of model time; it needs its own design so that a changed
-  parser version cannot silently reuse stale decisions. Recorded here rather than rushed.
 - **Larger batches.** Measured against the real corpus at four concurrent requests: five
   prompts per request took 0.42 s per prompt, ten took 0.73 s and twenty took 1.04 s. The model
   spends longer producing a bigger structured answer than it saves in round trips, so five

@@ -3,6 +3,7 @@ import sqlite3
 
 import pytest
 
+from recurrence_ranger import derived
 from recurrence_ranger.capture import Collector
 from recurrence_ranger.corpus import Candidate, _decision, derive
 from recurrence_ranger.corpus import main as corpus_main
@@ -262,3 +263,134 @@ def test_corpus_command_prints_the_summary(tmp_path, capsys):
     output_path = tmp_path / "corpus.sqlite3"
     assert corpus_main([str(source_path), str(output_path), "--watermark", "1"]) == 0
     assert json.loads(capsys.readouterr().out)["watermark"] == 1
+
+
+def _capture_with(tmp_path, prompts):
+    home = tmp_path / "claude"
+    transcript = home / "projects" / "one.jsonl"
+    transcript.parent.mkdir(parents=True, exist_ok=True)
+    transcript.write_bytes(
+        b"".join(
+            _line(
+                {
+                    "type": "user",
+                    "sessionId": "s",
+                    "uuid": f"u{number}",
+                    "timestamp": f"2026-09-22T10:0{number}:00Z",
+                    "message": {"role": "user", "content": text},
+                }
+            )
+            for number, text in enumerate(prompts, start=1)
+        )
+    )
+    source_path = tmp_path / "capture.sqlite3"
+    store = Store(source_path)
+    Collector(store).scan_once([Source("claude", "Claude", home, "test")])
+    store.close()
+    return source_path, transcript
+
+
+def test_model_decisions_are_carried_across_a_rederivation(tmp_path):
+    source_path, transcript = _capture_with(tmp_path, ["add tests", "write the README"])
+    corpus_path = tmp_path / "corpus.sqlite3"
+    derive(source_path, corpus_path)
+    with sqlite3.connect(corpus_path) as db:
+        db.execute(derived.RELEVANCE)
+        db.execute(derived.EXTRACTION_REVIEWS)
+        db.execute(derived.GUIDELINE_OCCURRENCES)
+        for prompt_id, text in db.execute("SELECT id,text FROM prompts ORDER BY id").fetchall():
+            db.execute(
+                "INSERT INTO relevance VALUES (?,'software_instruction','m',2,'earlier',0,NULL)",
+                (prompt_id,),
+            )
+            # Extraction had only reached the first prompt, as in a partially finished run.
+            if "tests" in text:
+                db.execute(
+                    "INSERT INTO extraction_reviews VALUES (?,'m',1,'earlier',NULL)", (prompt_id,)
+                )
+                db.execute("INSERT INTO guideline_occurrences VALUES (?,'TESTS')", (prompt_id,))
+
+    # A later session appends one more prompt, so the corpus is derived again.
+    with transcript.open("ab") as handle:
+        for number, later in enumerate(("pin the dependencies", "add the badges"), start=3):
+            handle.write(
+                _line(
+                    {
+                        "type": "user",
+                        "sessionId": "s",
+                        "uuid": f"u{number}",
+                        "timestamp": f"2026-09-22T10:3{number}:00Z",
+                        "message": {"role": "user", "content": later},
+                    }
+                )
+            )
+    store = Store(source_path)
+    Collector(store).scan_once([Source("claude", "Claude", tmp_path / "claude", "test")])
+    store.close()
+
+    summary = derive(source_path, corpus_path, carry_labels=True)
+    assert summary["carried_decisions"] == 2
+    with sqlite3.connect(corpus_path) as db:
+        assert db.execute(
+            """SELECT p.text,r.label,r.classified_at FROM prompts p
+               JOIN relevance r ON r.prompt_id=p.id ORDER BY p.text"""
+        ).fetchall() == [
+            ("add tests", "software_instruction", "earlier"),
+            ("write the README", "software_instruction", "earlier"),
+        ]
+        assert db.execute(
+            """SELECT p.text,g.theme FROM prompts p
+               JOIN guideline_occurrences g ON g.prompt_id=p.id ORDER BY p.text"""
+        ).fetchall() == [("add tests", "TESTS")]
+        # The prompt that was labelled but not yet reviewed stays waiting for extraction.
+        assert db.execute(
+            """SELECT COUNT(*) FROM prompts p JOIN relevance r ON r.prompt_id=p.id
+               LEFT JOIN extraction_reviews x ON x.prompt_id=p.id WHERE x.prompt_id IS NULL"""
+        ).fetchone() == (1,)
+        # The new prompts have no decision yet, so the next model run picks them up.
+        assert db.execute(
+            """SELECT COUNT(*) FROM prompts p LEFT JOIN relevance r ON r.prompt_id=p.id
+               WHERE r.prompt_id IS NULL"""
+        ).fetchone() == (2,)
+
+
+def test_decisions_are_dropped_by_default_and_when_the_text_changed(tmp_path):
+    source_path, _ = _capture_with(tmp_path, ["add tests"])
+    corpus_path = tmp_path / "corpus.sqlite3"
+    derive(source_path, corpus_path)
+    with sqlite3.connect(corpus_path) as db:
+        db.execute(derived.RELEVANCE)
+        db.execute("INSERT INTO relevance VALUES (1,'software_instruction','m',2,'earlier',0,NULL)")
+    assert derive(source_path, corpus_path)["carried_decisions"] == 0
+    with sqlite3.connect(corpus_path) as db:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "relevance" not in tables
+
+    other_source, _ = _capture_with(tmp_path / "second", ["add integration tests"])
+    with sqlite3.connect(corpus_path) as db:
+        db.execute(derived.RELEVANCE)
+        db.execute("INSERT INTO relevance VALUES (1,'software_instruction','m',2,'earlier',0,NULL)")
+    assert derive(other_source, corpus_path, carry_labels=True)["carried_decisions"] == 0
+
+
+def test_the_command_can_carry_labels(tmp_path, capsys):
+    source_path, _ = _capture_with(tmp_path, ["add tests"])
+    corpus_path = tmp_path / "corpus.sqlite3"
+    assert corpus_main([str(source_path), str(corpus_path), "--carry-labels"]) == 0
+    assert json.loads(capsys.readouterr().out)["carried_decisions"] == 0
+
+
+def test_a_corpus_without_extracted_themes_still_carries_its_labels(tmp_path):
+    source_path, _ = _capture_with(tmp_path, ["add tests"])
+    corpus_path = tmp_path / "corpus.sqlite3"
+    derive(source_path, corpus_path)
+    with sqlite3.connect(corpus_path) as db:
+        db.execute(derived.RELEVANCE)
+        db.execute(derived.EXTRACTION_REVIEWS)
+        db.execute("INSERT INTO relevance VALUES (1,'software_other','m',2,'earlier',0,NULL)")
+        db.execute("INSERT INTO extraction_reviews VALUES (1,'m',1,'earlier','no themes')")
+    assert derive(source_path, corpus_path, carry_labels=True)["carried_decisions"] == 1
+    with sqlite3.connect(corpus_path) as db:
+        assert db.execute("SELECT label FROM relevance").fetchall() == [("software_other",)]
+        assert db.execute("SELECT note FROM extraction_reviews").fetchall() == [("no themes",)]
+        assert db.execute("SELECT COUNT(*) FROM guideline_occurrences").fetchone() == (0,)
