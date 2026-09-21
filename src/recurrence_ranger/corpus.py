@@ -14,6 +14,12 @@ from recurrence_ranger.store import utc_now
 
 SCHEMA_VERSION = 1
 GENERATED_PREFIXES = (
+    "# AGENTS.md instructions",
+    "This session is being continued from a previous conversation",
+    "Base directory for this skill:",
+    "- You are a conversation title generator",
+    "-\nYou are a conversation title generator",
+    "You are a conversation title generator",
     "<environment_context>",
     "<subagent_notification>",
     "<recommended_plugins>",
@@ -22,6 +28,9 @@ GENERATED_PREFIXES = (
     "<local-command-",
     "<skill>",
     "<user_action>",
+    "<user_shell_command>",
+    "<bash-",
+    "<codex_internal_context",
     "<command-name>",
     "[Request interrupted",
     "[SYSTEM NOTIFICATION - NOT USER INPUT]",
@@ -81,6 +90,10 @@ def _decision(candidate: Candidate, raw: bytes) -> tuple[str, str]:
             return "uncertain", "raw record cannot be parsed"
         if record.get("toolUseResult") is not None:
             return "excluded", "tool result"
+        if record.get("promptSource") in {"system", "sdk"}:
+            return "excluded", "generated system or SDK prompt"
+        if record.get("isCompactSummary") or record.get("isVisibleInTranscriptOnly"):
+            return "excluded", "generated compaction summary"
         if record.get("isMeta"):
             return "excluded", "generated metadata"
         if record.get("isSidechain"):

@@ -2,7 +2,7 @@ import json
 import sqlite3
 
 from recurrence_ranger.capture import Collector
-from recurrence_ranger.corpus import derive
+from recurrence_ranger.corpus import Candidate, _decision, derive
 from recurrence_ranger.sources import Source
 from recurrence_ranger.store import Store
 
@@ -67,3 +67,13 @@ def test_corpus_excludes_tool_results_and_reconciles_history(tmp_path):
         ]
         assert db.execute("SELECT COUNT(*) FROM prompts WHERE text='secret'").fetchone()[0] == 0
     assert output_path.stat().st_mode & 0o777 == 0o600
+
+
+def test_generated_context_is_not_treated_as_human_input():
+    claude = Candidate(1, "Claude", "claude", "s", "user", None, None, "run tests")
+    raw = _line({"promptSource": "sdk", "message": {"content": "run tests"}})
+    assert _decision(claude, raw) == ("excluded", "generated system or SDK prompt")
+    codex = Candidate(
+        2, "Codex", "codex", "s", "message", None, None, "# AGENTS.md instructions for /repo"
+    )
+    assert _decision(codex, b"{}") == ("excluded", "generated context or notification")
