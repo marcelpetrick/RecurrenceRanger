@@ -9,7 +9,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from recurrence_ranger import localmodel
+from recurrence_ranger import derived, localmodel
 from recurrence_ranger.store import utc_now
 
 PROMPT_VERSION = 2
@@ -136,13 +136,7 @@ def classify(
         raise FileNotFoundError(path)
     db = sqlite3.connect(path)
     try:
-        db.execute(
-            """CREATE TABLE IF NOT EXISTS relevance (
-                 prompt_id INTEGER PRIMARY KEY REFERENCES prompts(id),
-                 label TEXT NOT NULL, model TEXT NOT NULL,
-                 prompt_version INTEGER NOT NULL, classified_at TEXT NOT NULL,
-                 truncated INTEGER NOT NULL DEFAULT 0, note TEXT)"""
-        )
+        derived.create(db, derived.RELEVANCE)
         columns = {row[1] for row in db.execute("PRAGMA table_info(relevance)")}
         if "note" not in columns:
             db.execute("ALTER TABLE relevance ADD COLUMN note TEXT")

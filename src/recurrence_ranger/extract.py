@@ -9,7 +9,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from recurrence_ranger import localmodel
+from recurrence_ranger import derived, localmodel
 from recurrence_ranger.store import utc_now
 
 EXTRACTOR_VERSION = 1
@@ -125,21 +125,11 @@ def extract(
         raise FileNotFoundError(path)
     db = sqlite3.connect(path)
     try:
-        db.execute(
-            """CREATE TABLE IF NOT EXISTS extraction_reviews (
-                 prompt_id INTEGER PRIMARY KEY REFERENCES prompts(id),
-                 model TEXT NOT NULL, extractor_version INTEGER NOT NULL,
-                 reviewed_at TEXT NOT NULL, note TEXT)"""
-        )
-        db.execute(
-            """CREATE TABLE IF NOT EXISTS guideline_occurrences (
-                 prompt_id INTEGER NOT NULL REFERENCES prompts(id), theme TEXT NOT NULL,
-                 PRIMARY KEY(prompt_id,theme))"""
-        )
-        db.execute(
-            """CREATE TABLE IF NOT EXISTS recall_candidates (
-                 prompt_id INTEGER PRIMARY KEY REFERENCES prompts(id),
-                 matched_term TEXT NOT NULL, rule_version INTEGER NOT NULL)"""
+        derived.create(
+            db,
+            derived.EXTRACTION_REVIEWS,
+            derived.GUIDELINE_OCCURRENCES,
+            derived.RECALL_CANDIDATES,
         )
         db.commit()
         total = 0

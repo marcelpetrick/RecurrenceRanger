@@ -8,6 +8,8 @@ import re
 import sqlite3
 from pathlib import Path
 
+from recurrence_ranger import derived
+
 RULE_VERSION = 1
 SOFTWARE_TERMS = re.compile(
     r"\b(?:ci|pipeline|github actions|readme|badges?|tests?|coverage|commits?|"
@@ -23,11 +25,7 @@ def flag(path: Path) -> dict:
         raise FileNotFoundError(path)
     db = sqlite3.connect(path)
     try:
-        db.execute(
-            """CREATE TABLE IF NOT EXISTS recall_candidates (
-                 prompt_id INTEGER PRIMARY KEY REFERENCES prompts(id),
-                 matched_term TEXT NOT NULL, rule_version INTEGER NOT NULL)"""
-        )
+        derived.create(db, derived.RECALL_CANDIDATES)
         rows = db.execute(
             """SELECT p.id,p.text FROM prompts p JOIN relevance r ON r.prompt_id=p.id
                WHERE p.authorship='human' AND r.label!='software_instruction'
