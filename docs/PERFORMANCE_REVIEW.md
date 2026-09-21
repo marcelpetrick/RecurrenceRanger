@@ -13,7 +13,12 @@ of VRAM), Python 3.14.7.
 | Relevance triage per prompt | 1.26 s | 0.56 s | 25-prompt timed run, then the live run over thousands of prompts |
 | Model request microbenchmark (4 batches of 5) | 0.87 s/prompt | 0.38 s/prompt | same prompts, 1 versus 4 concurrent requests |
 | Triage on an otherwise idle machine | — | 0.42 s/prompt | 80 unlabelled prompts, batch 5, four workers |
+| Guideline extraction | 12 s/prompt | 0.85 s/prompt | the live run before and after the schema bound the answer length |
 | Continuous capture | 42 s CPU in 85 min | unchanged | collector service with a 10 s poll over 943 transcript files |
+
+The extraction figure is the one that mattered most: the stage was not slow, it was
+retrying. Once the answer schema required one entry per prompt, the same model did the same
+work fourteen times faster and stopped discarding results.
 
 Capture was already cheap: under one percent of one core keeps four profiles current,
 because each cycle only stats files and reads appended bytes. The two expensive stages
@@ -34,8 +39,9 @@ Ranked by impact. Every fix has its own commit and its own tests.
 | 5 | Medium (robustness) | The version-history check ran `git rev-list HEAD` directly, so a repository without commits failed with a `CalledProcessError` traceback instead of the script's own error. | Report it as a `ValueError` like every other verification failure. |
 | 6 | Medium (robustness) | The pipeline used whichever ruff, mypy, pytest and coverage happened to be importable, so a local run could check the code with different tools than CI. This had already happened once with an unusable mypy in the user site. | `scripts/tool_versions.py` compares installed versions against the pinned development extra and fails with one line per drift. |
 | 7 | Low (testability) | The collector command dispatch ended in a condition the argument parser already excluded, so its fall-through could never run or be tested. | Handle backup as the remaining case. |
-| 8 | Medium (cost) | Re-deriving the corpus dropped every model decision, so including newer sessions meant paying for the whole triage and extraction again — hours of local model time. | `--carry-labels` re-attaches decisions to prompts whose profile, session and text are unchanged. New, edited and partly processed prompts stay open for the next resumable run. |
-| 9 | Low (portability) | One test called `git` without an identity, so it failed on machines without a global git configuration. GitHub Actions found this on the first hosted run. | Route it through the helper that carries the test identity. Verified with `GIT_CONFIG_GLOBAL=/dev/null`. |
+| 8 | High (correctness and performance) | The structured-output schema accepted a theme array of any length, so the model could answer a five-prompt extraction batch with an empty array. That read as a wrong-length answer: the batch was split and re-asked down to single prompts, and 18% of reviewed prompts were finally recorded with **no themes at all** while costing four extra requests each. | Bound both answer schemas to the batch size with `minItems` and `maxItems`. Extraction went from 0.08 answers per second to 1.17, and the affected 73 prompts were reopened and re-reviewed. |
+| 9 | Medium (cost) | Re-deriving the corpus dropped every model decision, so including newer sessions meant paying for the whole triage and extraction again — hours of local model time. | `--carry-labels` re-attaches decisions to prompts whose profile, session and text are unchanged. New, edited and partly processed prompts stay open for the next resumable run. |
+| 10 | Low (portability) | One test called `git` without an identity, so it failed on machines without a global git configuration. GitHub Actions found this on the first hosted run. | Route it through the helper that carries the test identity. Verified with `GIT_CONFIG_GLOBAL=/dev/null`. |
 
 ## Workflow level: what makes the whole run faster
 
