@@ -12,6 +12,7 @@ of VRAM), Python 3.14.7.
 | Corpus derivation from the 2.4 GB capture | 4.56 s | 1.06 s | `derive` on the acceptance backup, repeated runs, identical output |
 | Relevance triage per prompt | 1.26 s | 0.56 s | 25-prompt timed run, then the live run over thousands of prompts |
 | Model request microbenchmark (4 batches of 5) | 0.87 s/prompt | 0.38 s/prompt | same prompts, 1 versus 4 concurrent requests |
+| Triage on an otherwise idle machine | — | 0.42 s/prompt | 80 unlabelled prompts, batch 5, four workers |
 | Continuous capture | 42 s CPU in 85 min | unchanged | collector service with a 10 s poll over 943 transcript files |
 
 Capture was already cheap: under one percent of one core keeps four profiles current,
@@ -61,9 +62,10 @@ roughly 50 min, without changing any decision the pipeline records.
   identity depends on the watermark. Keying labels by profile, session and exact prompt text
   would preserve most of an hour of model time; it needs its own design so that a changed
   parser version cannot silently reuse stale decisions. Recorded here rather than rushed.
-- **Larger batches.** Batches above five prompts push long prompts out of the context window
-  again and increase the cost of one bad answer, so throughput was bought with concurrency
-  instead.
+- **Larger batches.** Measured against the real corpus at four concurrent requests: five
+  prompts per request took 0.42 s per prompt, ten took 0.73 s and twenty took 1.04 s. The model
+  spends longer producing a bigger structured answer than it saves in round trips, so five
+  stays the default and throughput was bought with concurrency instead.
 - **Running several triage processes.** Two writers on one SQLite corpus would race for the
   same unlabelled rows. Concurrency inside one process avoids that entirely.
 - **Micro-optimising the JSON parsing** that dominates derivation. After finding 4, the whole
