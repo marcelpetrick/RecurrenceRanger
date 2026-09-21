@@ -5,6 +5,9 @@ import os
 import sqlite3
 import subprocess
 import sys
+import threading
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 CLAUDE_SESSION = "11111111-2222-3333-4444-555555555555"
@@ -32,6 +35,11 @@ def run(*arguments, cwd, home):
     )
     assert completed.returncode == 0, completed.stderr
     return completed
+
+
+def _last_json(printed):
+    """The resumable stages print progress lines before their final summary."""
+    return json.loads(printed[printed.index("{\n") :])
 
 
 def _profiles(home):
@@ -185,3 +193,117 @@ def test_capture_to_report_runs_end_to_end(tmp_path):
     assert sorted(texts) == sorted([PROMPT, SECOND_PROMPT, SECOND_PROMPT])
     assert database.stat().st_mode & 0o777 == 0o600
     assert corpus.stat().st_mode & 0o777 == 0o600
+
+
+class _ModelHandler(BaseHTTPRequestHandler):
+    """Answer the two model stages the way a local Ollama instance would."""
+
+    def do_POST(self):
+        request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        items = json.loads(request["prompt"][request["prompt"].index("\n[") + 1 :])
+        if "themes" in request["format"]["properties"]:
+            body = {
+                "themes": [
+                    ["TESTS", "README", "BADGES"] if "README" in item["text"] else ["PIN_VERSIONS"]
+                    for item in items
+                ]
+            }
+        else:
+            body = {"labels": ["I" for _ in items]}
+        payload = json.dumps({"response": json.dumps(body)}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def log_message(self, *args):
+        return
+
+
+@contextmanager
+def local_model_server():
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _ModelHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}/api/generate"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_model_stages_run_end_to_end_against_a_local_server(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    repository = Path(__file__).resolve().parent.parent
+    manifest, _ = _profiles(home)
+    database = home / "private" / "conversations.sqlite3"
+    corpus = home / "private" / "corpus.sqlite3"
+    run(
+        "recurrence_ranger",
+        "--db",
+        str(database),
+        "--manifest",
+        str(manifest),
+        "backfill",
+        cwd=repository,
+        home=home,
+    )
+    run("recurrence_ranger.corpus", str(database), str(corpus), cwd=repository, home=home)
+
+    with local_model_server() as endpoint:
+        triage = _last_json(
+            run(
+                "recurrence_ranger.classify",
+                str(corpus),
+                "--endpoint",
+                endpoint,
+                "--model",
+                "test-model",
+                "--batch-size",
+                "2",
+                cwd=repository,
+                home=home,
+            ).stdout
+        )
+        assert triage["remaining"] == 0
+        assert dict(triage["labels"]) == {"software_instruction": 2}
+        flagged = json.loads(
+            run("recurrence_ranger.recall", str(corpus), cwd=repository, home=home).stdout
+        )
+        assert flagged == {"flagged": 0, "rule_version": 1}
+        extraction = _last_json(
+            run(
+                "recurrence_ranger.extract",
+                str(corpus),
+                "--endpoint",
+                endpoint,
+                "--model",
+                "test-model",
+                cwd=repository,
+                home=home,
+            ).stdout
+        )
+        assert extraction["remaining"] == 0
+        assert dict(extraction["themes"]) == {
+            "BADGES": 1,
+            "PIN_VERSIONS": 1,
+            "README": 1,
+            "TESTS": 1,
+        }
+
+    report = json.loads(
+        run("recurrence_ranger.report", str(corpus), cwd=repository, home=home).stdout
+    )
+    assert report["relevance_remaining"] == 0
+    assert report["relevance_model_errors"] == 0
+    assert report["extraction_reviewed"] == 2
+    assert [theme["theme"] for theme in report["themes"]] == [
+        "BADGES",
+        "PIN_VERSIONS",
+        "README",
+        "TESTS",
+    ]
+    assert all(theme["prompts"] == 1 for theme in report["themes"])
