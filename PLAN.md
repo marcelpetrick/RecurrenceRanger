@@ -2,6 +2,28 @@
 
 Date: 2026-09-21
 
+## Current priority and stop point
+
+The capture milestone is implemented and accepted in `CAPTURE_ACCEPTANCE.md`.
+The fixed private corpus is derived from raw-record watermark 385404. It has
+7,882 likely human prompts and 126 uncertain-authorship prompts across the four
+profiles. Relevance triage is resumable and incomplete; extraction, source review,
+and the final evidence-backed guidelines remain future work.
+
+Marcel's current ordered work request is:
+
+1. Finish and commit the direct-mention evidence audit. Complete: the audit is
+   committed with a synthetic test. Its keyword counts are search aids, not
+   validated guideline counts.
+2. Update and commit the plan and documentation. This is the current step.
+3. Make every commit follow patch SemVer, starting at `0.0.1` in the root
+   commit and increasing by one patch number for every later commit. Rewrite
+   existing commits to add the correct version to each tree, align package
+   version fields where present, verify the whole sequence, and force push the
+   rewritten `master` branch as explicitly requested.
+4. Stop after the versioning change. Resume guideline analysis only on a later
+   request; the private corpus and unfinished model work remain resumable.
+
 ## Objective
 
 Find the software-development guidelines Marcel repeatedly gives AI agents and
@@ -231,11 +253,14 @@ detected gaps rather than promising lossless capture under all circumstances.
 - Every final guideline has evidence, scope, and an explicit confidence rationale.
 - The report includes new themes beyond the seed categories where the data
   supports them, along with contradictions and coverage limitations.
-- Each completed work step has a separate local commit; nothing is pushed.
+- Each completed work step has a separate commit. The SemVer history rewrite is
+  explicitly authorized for a force push; private corpus data remains local.
 
 ## Local commit practice
 
 Review each step's diff and run checks appropriate to its contents before
 committing. Stage only that step's files. Keep source logs unchanged and private
-corpus artifacts untracked/ignored. Record the local commit for each completed
-step in the progress report to Marcel.
+corpus artifacts untracked/ignored. Increment the patch version once in every
+commit, starting with `0.0.1` in the root commit; keep package version fields in
+sync whenever those files exist. Record the commit for each completed step in
+the progress report to Marcel.

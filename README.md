@@ -140,6 +140,8 @@ representations of one prompt. Repeated turns remain separate.
   ~/.local/share/recurrence-ranger/corpus.sqlite3
 .venv/bin/python -m recurrence_ranger.report \
   ~/.local/share/recurrence-ranger/corpus.sqlite3
+.venv/bin/python -m recurrence_ranger.evidence_audit \
+  ~/.local/share/recurrence-ranger/corpus.sqlite3
 ```
 
 The classifier uses an installed `qwen3.5:4b` model through local Ollama on
@@ -156,3 +158,11 @@ change.
 The active planning conversations for this investigation remain in the private
 corpus but are excluded from guideline evidence, so the seed examples in the
 request cannot prove themselves by repetition.
+
+The evidence audit independently searches the opening 750 characters of likely
+human prompts for explicit theme phrases. It reports matched prompt, session,
+project-path, and profile counts plus a few raw-record IDs, without printing
+prompt text. It excludes this project and the original wishlist project. A
+match can be a question, quote, or one-off request, while a differently worded
+instruction may not match. Review the linked source records before treating
+these counts as support for a reusable guideline.
