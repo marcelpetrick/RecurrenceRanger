@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from recurrence_ranger.sources import Source, conversation_files, discover
+from recurrence_ranger.sources import Source, conversation_files, discover, load_manifest
 from recurrence_ranger.store import Store
 
 
@@ -57,3 +57,100 @@ def test_store_schema_backup_and_newer_version_guard(tmp_path):
         db.execute("PRAGMA user_version=999")
     with pytest.raises(RuntimeError, match="newer"):
         Store(path)
+
+
+def test_manifest_rejects_unknown_schema_and_tools(tmp_path):
+    path = tmp_path / "sources.json"
+    path.write_text(json.dumps({"schema_version": 2, "sources": []}))
+    with pytest.raises(ValueError, match="unsupported source manifest"):
+        load_manifest(path)
+    path.write_text(json.dumps({"schema_version": 1, "sources": {}}))
+    with pytest.raises(ValueError, match="unsupported source manifest"):
+        load_manifest(path)
+    path.write_text(
+        json.dumps(
+            {"schema_version": 1, "sources": [{"tool": "gemini", "label": "G", "home": "~/.g"}]}
+        )
+    )
+    with pytest.raises(ValueError, match="unsupported tool: gemini"):
+        load_manifest(path)
+
+
+def test_discovery_reads_environment_and_launcher_homes(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".claude-env" / "projects").mkdir(parents=True)
+    (home / ".codex-launcher" / "sessions").mkdir(parents=True)
+    (home / ".zshrc").write_text(
+        "# export CODEX_HOME=$HOME/.codex-commented\n"
+        'export CODEX_HOME="$HOME/.codex-launcher"\n'
+        "alias c='env CLAUDE_CONFIG_DIR=~/.claude-alias claude'\n"
+    )
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(home / ".claude-env"))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    sources = discover(home=home)
+    homes = {str(source.home) for source in sources}
+    origins = {source.origin for source in sources}
+    assert next(s for s in sources if s.origin == "environment").home == home / ".claude-env"
+    assert str(home / ".codex-launcher") in homes
+    assert str(home / ".claude-alias") in homes
+    assert str(home / ".codex-commented") not in homes
+    assert origins >= {"environment", "launcher:.zshrc", "default"}
+
+
+def test_discovery_survives_unreadable_shell_configuration(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".config" / "fish").mkdir(parents=True)
+    (home / ".zshrc").mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    assert [source.origin for source in discover(home=home)] == ["default", "default"]
+
+
+def test_codex_files_include_archives_and_skip_other_names(tmp_path):
+    home = tmp_path / "codex"
+    (home / "sessions").mkdir(parents=True)
+    (home / "archived_sessions").mkdir()
+    rollout = home / "sessions" / "rollout-1.jsonl"
+    archived = home / "archived_sessions" / "rollout-0.jsonl"
+    for path in (rollout, archived):
+        path.write_text("{}\n")
+    (home / "sessions" / "notes.jsonl").write_text("{}\n")
+    (home / "history.jsonl").write_text("{}\n")
+    found = conversation_files(Source("codex", "Codex", home, "test"))
+    assert set(found) == {rollout, archived, home / "history.jsonl"}
+
+
+def test_store_migrates_a_first_generation_database(tmp_path):
+    path = tmp_path / "old.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.executescript("""
+          CREATE TABLE sources (id TEXT PRIMARY KEY, tool TEXT NOT NULL, label TEXT NOT NULL,
+            home TEXT NOT NULL, origin TEXT NOT NULL, available INTEGER NOT NULL,
+            last_seen TEXT NOT NULL);
+          CREATE TABLE files (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL,
+            path TEXT NOT NULL UNIQUE, last_seen TEXT, missing INTEGER NOT NULL DEFAULT 0,
+            current_generation INTEGER);
+          CREATE TABLE generations (id INTEGER PRIMARY KEY, file_id INTEGER NOT NULL,
+            number INTEGER NOT NULL, device INTEGER NOT NULL, inode INTEGER NOT NULL,
+            reason TEXT NOT NULL, created_at TEXT NOT NULL, checkpoint INTEGER NOT NULL DEFAULT 0,
+            fingerprint TEXT NOT NULL DEFAULT '', last_size INTEGER NOT NULL DEFAULT 0,
+            last_mtime_ns INTEGER NOT NULL DEFAULT 0, UNIQUE(file_id,number));
+          CREATE TABLE raw_records (id INTEGER PRIMARY KEY, generation_id INTEGER NOT NULL,
+            start_offset INTEGER NOT NULL, end_offset INTEGER NOT NULL, data BLOB NOT NULL,
+            digest TEXT NOT NULL, captured_at TEXT NOT NULL, parse_status TEXT NOT NULL,
+            parse_error TEXT, UNIQUE(generation_id,start_offset,end_offset));
+          INSERT INTO raw_records VALUES (1,1,0,3,'{}\n','d','now','parsed',NULL);
+          PRAGMA user_version=1;
+        """)
+    store = Store(path)
+    try:
+        assert store.db.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert store.db.execute("SELECT parser_version FROM raw_records").fetchone() == (1,)
+        tables = {
+            row[0] for row in store.db.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        assert {"file_aliases", "ingestion_runs"} <= tables
+    finally:
+        store.close()
