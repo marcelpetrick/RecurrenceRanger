@@ -10,8 +10,10 @@ import signal
 import sqlite3
 import sys
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from types import FrameType
 
 from recurrence_ranger.capture import Collector
 from recurrence_ranger.normalize import PARSER_VERSION
@@ -22,7 +24,7 @@ DEFAULT_DB = Path("~/.local/share/recurrence-ranger/conversations.sqlite3")
 
 
 @contextmanager
-def writer_lock(path: Path):
+def writer_lock(path: Path) -> Iterator[None]:
     lock_path = path.expanduser().with_suffix(".lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     descriptor = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
@@ -112,7 +114,7 @@ def _collect(store: Store, args: argparse.Namespace) -> int:
         ).lastrowid
     stopping = False
 
-    def request_stop(_signal, _frame):
+    def request_stop(_signal: int, _frame: FrameType | None) -> None:
         nonlocal stopping
         stopping = True
 

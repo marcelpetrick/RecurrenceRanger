@@ -8,6 +8,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import cast
 
 from recurrence_ranger.normalize import PARSER_VERSION
 from recurrence_ranger.store import utc_now
@@ -184,13 +185,20 @@ def derive(source_path: Path, output_path: Path, watermark: int | None = None) -
                 )
                 candidates = []
                 decisions = {}
-                for row in rows:
+                for record_id, profile, tool, session, kind, stamp, project, text, raw in rows:
                     candidate = Candidate(
-                        *row[:-1],
-                        session_origin=session_origins.get((row[1], row[3])),
+                        record_id,
+                        profile,
+                        tool,
+                        session,
+                        kind,
+                        stamp,
+                        project,
+                        text,
+                        session_origins.get((profile, session)),
                     )
                     candidates.append(candidate)
-                    decisions[candidate.record_id] = _decision(candidate, row[-1])
+                    decisions[record_id] = _decision(candidate, raw)
                 priority = {"user": 0, "message": 0, "user_message": 1, "history": 2}
                 candidates.sort(key=lambda c: (priority.get(c.kind, 3), c.record_id))
                 existing: dict[tuple[str, str, str], list[tuple[int, str, float | None]]] = {}
@@ -212,7 +220,7 @@ def derive(source_path: Path, output_path: Path, watermark: int | None = None) -
                                 decision = "duplicate"
                                 break
                         if prompt_id is None:
-                            prompt_id = output.execute(
+                            inserted = output.execute(
                                 """INSERT INTO prompts(profile,session,timestamp,project,text,
                                                        primary_record_id,authorship)
                                    VALUES (?,?,?,?,?,?,?)""",
@@ -225,7 +233,8 @@ def derive(source_path: Path, output_path: Path, watermark: int | None = None) -
                                     candidate.record_id,
                                     decision,
                                 ),
-                            ).lastrowid
+                            )
+                            prompt_id = cast(int, inserted.lastrowid)
                             existing.setdefault(key, []).append((prompt_id, candidate.kind, when))
                     output.execute(
                         "INSERT INTO occurrences VALUES (?,?,?,?,?,?,?)",

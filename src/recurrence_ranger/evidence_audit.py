@@ -34,7 +34,7 @@ def audit(path: Path) -> dict:
             name: re.compile(pattern, re.IGNORECASE | re.DOTALL)
             for name, pattern in PATTERNS.items()
         }
-        matches = {name: [] for name in PATTERNS}
+        matches: dict[str, list[tuple[int, str, str, str | None]]] = {name: [] for name in PATTERNS}
         rows = db.execute(
             """SELECT primary_record_id,profile,session,project,text FROM prompts
                WHERE authorship='human' AND COALESCE(project,'') NOT LIKE '%RecurrenceRanger%'

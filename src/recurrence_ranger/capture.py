@@ -8,13 +8,22 @@ import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import BinaryIO, cast
 
-from recurrence_ranger.normalize import PARSER_VERSION, codex_session_project, parse_record
+from recurrence_ranger.normalize import (
+    PARSER_VERSION,
+    Message,
+    codex_session_project,
+    parse_record,
+)
 from recurrence_ranger.sources import Source, conversation_files
 from recurrence_ranger.store import Store, utc_now
 
 MAX_RECORD_BYTES = 256 * 1024 * 1024
 SAMPLE_BYTES = 256
+
+# id, number, device, inode, checkpoint, fingerprint, last size, last mtime
+Generation = tuple[int, int, int, int, int, str, int, int]
 
 
 @dataclass
@@ -26,7 +35,7 @@ class ScanResult:
     pending: int = 0
 
 
-def _fingerprint(handle, offset: int) -> str:
+def _fingerprint(handle: BinaryIO, offset: int) -> str:
     """Sample the committed prefix; this detects common rewrites, not every edit."""
     if not offset:
         return ""
@@ -87,7 +96,7 @@ class Collector:
                     (source.id, str(path), stage, detail[:500], utc_now()),
                 )
 
-    def _file_row(self, source: Source, path: Path) -> tuple[int, tuple | None]:
+    def _file_row(self, source: Source, path: Path) -> tuple[int, Generation | None]:
         db = self.store.db
         db.execute(
             """
@@ -111,7 +120,9 @@ class Collector:
         ).fetchone()
         return file_id, generation
 
-    def _new_generation(self, file_id: int, previous: tuple | None, stat, reason: str) -> tuple:
+    def _new_generation(
+        self, file_id: int, previous: Generation | None, stat: os.stat_result, reason: str
+    ) -> Generation:
         db = self.store.db
         number = previous[1] + 1 if previous else 1
         if previous:
@@ -137,9 +148,10 @@ class Collector:
                 stat.st_mtime_ns,
             ),
         )
-        db.execute("UPDATE files SET current_generation=? WHERE id=?", (cursor.lastrowid, file_id))
+        generation_id = cast(int, cursor.lastrowid)
+        db.execute("UPDATE files SET current_generation=? WHERE id=?", (generation_id, file_id))
         return (
-            cursor.lastrowid,
+            generation_id,
             number,
             stat.st_dev,
             stat.st_ino,
@@ -159,8 +171,9 @@ class Collector:
                 with self.store.db:
                     self._source(source)
                     file_id, generation = self._file_row(source, path)
-                    reason = "first observation"
-                    if generation:
+                    if generation is None:
+                        generation = self._new_generation(file_id, None, stat, "first observation")
+                    else:
                         if (stat.st_dev, stat.st_ino) != (generation[2], generation[3]):
                             reason = "replacement"
                         elif stat.st_size < generation[4]:
@@ -169,8 +182,8 @@ class Collector:
                             reason = "committed prefix changed"
                         else:
                             reason = ""
-                    if reason:
-                        generation = self._new_generation(file_id, generation, stat, reason)
+                        if reason:
+                            generation = self._new_generation(file_id, generation, stat, reason)
                     generation_id, offset = generation[0], generation[4]
                     handle.seek(offset)
                     while handle.tell() < stat.st_size:
@@ -213,7 +226,7 @@ class Collector:
                                 PARSER_VERSION,
                             ),
                         )
-                        record_id = cursor.lastrowid
+                        record_id = cast(int, cursor.lastrowid)
                         if (
                             cursor.rowcount
                             and source.tool == "codex"
@@ -262,7 +275,7 @@ class Collector:
                 pass
         return result
 
-    def _message(self, record_id: int, source: Source, message) -> None:
+    def _message(self, record_id: int, source: Source, message: Message) -> None:
         db = self.store.db
         db.execute(
             """
