@@ -11,7 +11,7 @@ from pathlib import Path
 
 from recurrence_ranger.store import utc_now
 
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2
 LABELS = {
     "I": "software_instruction",
     "Q": "software_other",
@@ -26,15 +26,15 @@ tasks from reusable guidelines.
 Q = a software/technical question or discussion without a requested change.
 N = unrelated to software development.
 U = too little context, ambiguous authorship, or impossible to decide.
-Return exactly one code for every id in the JSON labels object. If a short
+Return exactly one code for every input, in the same order, in a JSON labels array. If a short
 follow-up such as 'continue' needs prior conversation context, choose U.
 """
 FORMAT = {
     "type": "object",
     "properties": {
         "labels": {
-            "type": "object",
-            "additionalProperties": {"type": "string", "enum": list(LABELS)},
+            "type": "array",
+            "items": {"type": "string", "enum": list(LABELS)},
         }
     },
     "required": ["labels"],
@@ -49,7 +49,11 @@ def _request(rows: list[tuple[int, str]], model: str, endpoint: str) -> dict[int
         "stream": False,
         "think": False,
         "format": FORMAT,
-        "options": {"temperature": 0, "num_predict": max(400, 24 * len(rows))},
+        "options": {
+            "temperature": 0,
+            "num_ctx": 8192,
+            "num_predict": max(100, 6 * len(rows)),
+        },
     }
     request = urllib.request.Request(
         endpoint,
@@ -59,10 +63,9 @@ def _request(rows: list[tuple[int, str]], model: str, endpoint: str) -> dict[int
     with urllib.request.urlopen(request, timeout=300) as response:
         answer = json.load(response)
     values = json.loads(answer["response"])["labels"]
-    parsed = {int(key): LABELS[code] for key, code in values.items()}
-    if set(parsed) != {row_id for row_id, _ in rows}:
-        raise ValueError("model omitted or added prompt IDs")
-    return parsed
+    if not isinstance(values, list) or len(values) != len(rows):
+        raise ValueError("model returned wrong number of labels")
+    return {row_id: LABELS[code] for (row_id, _), code in zip(rows, values, strict=True)}
 
 
 def _classify_rows(
@@ -84,7 +87,7 @@ def classify(
     *,
     model: str = "qwen3.5:4b",
     endpoint: str = "http://127.0.0.1:11434/api/generate",
-    batch_size: int = 20,
+    batch_size: int = 5,
     limit: int = 0,
 ) -> dict:
     if not endpoint.startswith("http://127.0.0.1:"):
@@ -155,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="recurrence-ranger-classify")
     parser.add_argument("corpus", type=Path)
     parser.add_argument("--model", default="qwen3.5:4b")
-    parser.add_argument("--batch-size", type=int, default=20)
+    parser.add_argument("--batch-size", type=int, default=5)
     parser.add_argument("--limit", type=int, default=0)
     args = parser.parse_args(argv)
     print(
