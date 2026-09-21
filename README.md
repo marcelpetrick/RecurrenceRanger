@@ -25,6 +25,8 @@ The default database is
 Its contents, SQLite sidecars, backups, and exports must never be committed or
 pushed. Diagnostic commands print paths, counts, and errors, not prompt text.
 The raw data may still contain secrets; protect backups to the same standard.
+Measured capture coverage and its limits are in
+[CAPTURE_ACCEPTANCE.md](CAPTURE_ACCEPTANCE.md).
 
 ## Setup and first run
 

@@ -5,8 +5,8 @@ Date: 2026-09-21
 Decision: implement the periodic incremental collector described in
 [IMPLEMENTATION_OPTIONS.md](IMPLEMENTATION_OPTIONS.md).
 
-Status: planning only; no corpus inventory, collector, database, or service has
-been created.
+Status: implemented. This document preserves the original handoff; measured
+results are in [CAPTURE_ACCEPTANCE.md](CAPTURE_ACCEPTANCE.md).
 
 ## Goal and boundary
 
