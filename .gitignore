@@ -11,3 +11,4 @@ __pycache__/
 backups/
 exports/
 coverage.json
+dist/

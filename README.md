@@ -5,6 +5,12 @@ Codex conversation records. It captures retained history and polls for new
 records while backfill is still running. The database preserves original JSONL
 bytes and exposes a best-effort message view for later guideline analysis.
 
+**Author: Marcel Petrick <mail@marcelpetrick.it>**
+
+**License: GPLv3 or later. See [`LICENSE`](LICENSE).**
+
+**Note: project is generated with AI.**
+
 The first milestone is **capture**. Message rows retain the source role and
 are marked `unclassified` for human authorship; a transport `user` role alone
 does not prove that Marcel typed the text. Semantic guideline extraction is
