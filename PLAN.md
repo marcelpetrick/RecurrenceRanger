@@ -27,6 +27,16 @@ Marcel's current ordered work request is:
 5. Provide a `localpipeline` entry point for all code changes, with a gate that
    fails unless overall coverage is strictly greater than 98%. Complete; see
    the section below. Guideline analysis remains paused until requested.
+6. Publish the project, following the conventions of `Cullendula` and
+   `myLastFmPlayer`:
+   - a GitHub workflow that runs the same local pipeline,
+   - a separate GitHub workflow for quality and linting,
+   - a GitHub workflow that builds and publishes a release,
+   - README status badges in the style of those two repositories,
+   - the GPLv3-or-later license and author metadata those repositories use,
+   - then push `master`, make the repository public, and publish a release.
+
+   Guideline analysis stays paused until Marcel requests it.
 
 ## Local pipeline and coverage gate
 
