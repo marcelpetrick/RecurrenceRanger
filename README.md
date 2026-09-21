@@ -204,6 +204,12 @@ The active planning conversations for this investigation remain in the private
 corpus but are excluded from guideline evidence, so the seed examples in the
 request cannot prove themselves by repetition.
 
+Derived results live in [docs/](docs/): the ranked guideline catalog
+([GUIDELINES.md](docs/GUIDELINES.md)), the evidence and its limits
+([EVIDENCE.md](docs/EVIDENCE.md)), the performance and robustness review
+([PERFORMANCE_REVIEW.md](docs/PERFORMANCE_REVIEW.md)) and a summary page
+([agentic-view.html](docs/agentic-view.html)) with the counter-analysis.
+
 The evidence audit independently searches the opening 750 characters of likely
 human prompts for explicit theme phrases. It reports matched prompt, session,
 project-path, and profile counts plus a few raw-record IDs, without printing

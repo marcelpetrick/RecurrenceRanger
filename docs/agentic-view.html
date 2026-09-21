@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Marcel's Agent Doctrine</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #e9edf0;
+    --surface: #f8fafb;
+    --surface-sunk: #dfe5ea;
+    --ink: #111a21;
+    --ink-soft: #3c4c58;
+    --muted: #647785;
+    --rule: #c7d2da;
+    --accent: #005f82;
+    --accent-soft: #cfe3ec;
+    --good: #1c6b47;
+    --warn: #8a5b00;
+    --crit: #9c2b25;
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    --measure: 66ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0d1317;
+      --surface: #141d23;
+      --surface-sunk: #1b262d;
+      --ink: #e8eff4;
+      --ink-soft: #c2d0d9;
+      --muted: #8ba0ad;
+      --rule: #29383f;
+      --accent: #57c2e6;
+      --accent-soft: #1d3a46;
+      --good: #57bd8c;
+      --warn: #d7a53c;
+      --crit: #e8776f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d1317;
+    --surface: #141d23;
+    --surface-sunk: #1b262d;
+    --ink: #e8eff4;
+    --ink-soft: #c2d0d9;
+    --muted: #8ba0ad;
+    --rule: #29383f;
+    --accent: #57c2e6;
+    --accent-soft: #1d3a46;
+    --good: #57bd8c;
+    --warn: #d7a53c;
+    --crit: #e8776f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 0 72px; }
+  p, li { color: var(--ink-soft); }
+  p { max-width: var(--measure); }
+  h1, h2, h3, .eyebrow, .tile-value, .bar-value, .chip, .card-index { font-family: var(--display); }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  header.masthead { border-bottom: 2px solid var(--ink); padding-block: 48px 26px; }
+  h1 {
+    font-size: clamp(34px, 6vw, 58px);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    margin: 0 0 18px;
+    text-wrap: balance;
+  }
+  .thesis { font-size: clamp(19px, 2.4vw, 23px); line-height: 1.45; color: var(--ink); max-width: 58ch; }
+  .provenance {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+  }
+  h2 {
+    font-size: clamp(22px, 3vw, 30px);
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+  section { padding-block: 46px; border-bottom: 1px solid var(--rule); }
+  section:last-of-type { border-bottom: 0; }
+  .lede { font-size: 18px; color: var(--ink-soft); margin-top: 0; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-top: 28px; }
+  .tile { background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 18px 16px; }
+  .tile-value { font-size: 30px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .tile-label { font-family: var(--mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-top: 8px; }
+  .tile-note { font-size: 14px; color: var(--ink-soft); margin: 8px 0 0; max-width: none; }
+  ol.doctrine { list-style: none; counter-reset: doctrine; margin: 30px 0 0; padding: 0; display: grid; gap: 4px; }
+  ol.doctrine > li { counter-increment: doctrine; display: grid; grid-template-columns: 54px 1fr; gap: 18px; padding-block: 20px; border-top: 1px solid var(--rule); }
+  ol.doctrine > li::before {
+    content: counter(doctrine, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--accent);
+    padding-top: 4px;
+  }
+  ol.doctrine h3 { font-size: 19px; margin: 0 0 6px; font-weight: 600; color: var(--ink); }
+  ol.doctrine p { margin: 0 0 8px; }
+  .quote { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .counts { font-family: var(--mono); font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+  .bars { margin-top: 26px; display: grid; gap: 7px; }
+  .bar-row { display: grid; grid-template-columns: minmax(130px, 200px) 1fr 132px; gap: 12px; align-items: center; }
+  .bar-name { font-family: var(--mono); font-size: 12.5px; color: var(--ink); overflow-wrap: anywhere; }
+  .bar-track { background: var(--surface-sunk); border-radius: 2px; height: 20px; position: relative; overflow: hidden; }
+  .bar-fill { background: var(--accent); height: 100%; border-radius: 2px 0 0 2px; }
+  .bar-fill.seed { background: var(--accent); opacity: 0.45; }
+  .bar-value { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .legend { font-family: var(--mono); font-size: 11.5px; color: var(--muted); display: flex; gap: 18px; flex-wrap: wrap; margin-top: 16px; }
+  .swatch { display: inline-block; width: 11px; height: 11px; background: var(--accent); margin-right: 6px; vertical-align: baseline; }
+  .swatch.faded { opacity: 0.45; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 22px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  td { color: var(--ink-soft); }
+  .table-scroll { overflow-x: auto; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 16px; margin-top: 30px; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--crit); border-radius: 3px; padding: 18px 18px 20px; }
+  .card.moderate { border-left-color: var(--warn); }
+  .card.watch { border-left-color: var(--accent); }
+  .card-index { font-family: var(--mono); font-size: 11.5px; color: var(--muted); letter-spacing: 0.1em; }
+  .card h3 { font-size: 17.5px; margin: 6px 0 8px; color: var(--ink); font-weight: 600; }
+  .card p { font-size: 15px; margin: 0 0 10px; max-width: none; }
+  .card p:last-child { margin-bottom: 0; }
+  .card .missing { color: var(--ink); }
+  .chip { display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--rule); border-radius: 2px; padding: 2px 7px; color: var(--muted); }
+  .method p { font-size: 15px; }
+  footer { padding-block: 34px 0; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  footer a, .method a { color: var(--accent); }
+  @media (max-width: 620px) {
+    .bar-row { grid-template-columns: 1fr; gap: 4px; }
+    .bar-value { font-size: 11.5px; }
+    ol.doctrine > li { grid-template-columns: 34px 1fr; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Derived from local agent transcripts · 2026-09-22</p>
+  <h1>Marcel's Agent Doctrine</h1>
+  <p class="thesis">Across five months and 202 project paths, one instruction outranks every
+  other by a factor of two and a half: <em>finish the whole thing</em>. The rest of the doctrine
+  exists to make that safe.</p>
+  <div class="provenance">
+    <span>7,882 human prompts</span><span>710 sessions</span><span>202 project paths</span>
+    <span>4 tool profiles</span><span>2026-04-10 → 2026-09-21</span><span>385,404 raw records</span>
+  </div>
+</header>
+
+<section>
+  <p class="eyebrow">Executive summary</p>
+  <h2>What the data says about how he works with agents</h2>
+  <p class="lede">Five findings a reader needs before the detail.</p>
+  <div class="tiles">
+    <div class="tile">
+      <div class="tile-value">58%</div>
+      <div class="tile-label">Prompts that change software</div>
+      <p class="tile-note">4,560 of 7,882 prompts are instructions to build or change something. This is a
+      workshop, not a chat.</p>
+    </div>
+    <div class="tile">
+      <div class="tile-value">463</div>
+      <div class="tile-label">"Get all done"</div>
+      <p class="tile-note">The completion instruction appears in 188 sessions and 95 project paths — the
+      most repeated idea in the corpus.</p>
+    </div>
+    <div class="tile">
+      <div class="tile-value">345</div>
+      <div class="tile-label">Commit discipline mentions</div>
+      <p class="tile-note">Atomic commits, conventional messages and version bumps, combined. Process is
+      not negotiable; scope is.</p>
+    </div>
+    <div class="tile">
+      <div class="tile-value">29 / 18</div>
+      <div class="tile-label">Badges / C4 mentions</div>
+      <p class="tile-note">Two of the four categories he expected to dominate rank near the bottom. The
+      data corrected the hypothesis.</p>
+    </div>
+  </div>
+  <p style="margin-top:26px">The picture is consistent: an operator who treats an agent as a <strong>fully
+  accountable contractor</strong>, not an autocomplete. He states the outcome, insists on a plan, then
+  expects the entire batch delivered, reviewed, committed, pushed and released — with evidence attached.
+  What he does <em>not</em> delegate is judgement about scope: the sharpest corrections in the corpus are
+  about agents doing more than was asked.</p>
+</section>
+
+<section>
+  <p class="eyebrow">The doctrine</p>
+  <h2>Seven principles, ranked by how often he has to say them</h2>
+  <p class="lede">Counts are matching prompts / sessions / project paths / tool profiles, measured over
+  every human prompt with this project excluded.</p>
+  <ol class="doctrine">
+    <li>
+      <div>
+        <h3>Finish the authorized work, then report</h3>
+        <p>Not the first step, not a plan to do it later, and not a list of commands for the human to run.
+        When several requests are open, all of them get done.</p>
+        <p class="quote">“get all done” · “get it done and documented” · “run the commands yourself”</p>
+        <div class="counts"><span>463 prompts</span><span>188 sessions</span><span>95 projects</span><span>4 profiles</span></div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h3>Plan first, say what you understood, then execute</h3>
+        <p>The plan is written down, options are compared with reasons, and the plan file stays current as
+        the work proceeds. Confirmation happens once, at the direction — not at every step.</p>
+        <div class="counts"><span>182 prompts</span><span>120 sessions</span><span>66 projects</span><span>4 profiles</span></div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h3>Review your own output, then fix every finding</h3>
+        <p>Code, architecture and documentation are reviewed against the current state, findings are ranked
+        by severity, and then <em>all</em> of them are fixed — each with its own commit and, where a
+        reviewer is involved, its own answer.</p>
+        <div class="counts"><span>169 review</span><span>112 self-review</span><span>64 fix-all</span><span>4 profiles</span></div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h3>Commit atomically, conventionally, with a version bump</h3>
+        <p>One logical change per commit, a conventional subject, a body that says why, a patch increment in
+        the same commit, and only that change's files staged. In company merge requests the same work is
+        squashed into one conventional commit instead — the boundary is the review process, not the taste.</p>
+        <div class="counts"><span>128 version</span><span>108 atomic</span><span>98 conventional</span><span>44 projects</span></div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h3>One pipeline, run locally, mirrored by CI, then watched</h3>
+        <p>A committed entry point runs formatting, lint, static analysis, tests and coverage; hosted CI runs
+        that same script rather than a second definition; after the push, the pipeline and the review
+        comments are watched and answered.</p>
+        <div class="counts"><span>112 local</span><span>55 hosted</span><span>24 watch</span><span>4 profiles</span></div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h3>Make the result verifiable</h3>
+        <p>Tests that exercise real behavior, coverage as a measured number with a gate, and claims backed by
+        something someone else can check: a log, a screenshot, a profiling figure, a command.</p>
+        <p class="quote">“make stuff test and verifiable” · “if you can make your claim testable, then do”</p>
+        <div class="counts"><span>100 coverage</span><span>85 tests</span><span>46 evidence</span><span>4 profiles</span></div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h3>Ship it, and leave a trace</h3>
+        <p>Work ends in a push and a public release, and it is linked to the ticket or merge request that
+        asked for it, with the reviewer assigned, labels current and the outcome commented back.</p>
+        <div class="counts"><span>142 ticket trace</span><span>72 release</span><span>81 dependencies</span><span>4 profiles</span></div>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<section>
+  <p class="eyebrow">Evidence</p>
+  <h2>Every theme, ranked</h2>
+  <p class="lede">Matching prompts per theme, searched in the opening of all 7,882 human prompts. Faded
+  bars are the four categories that were expected to dominate before any data was read.</p>
+  <div class="bars">
+    <div class="bar-row"><span class="bar-name">FINISH_ALL</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><span class="bar-value">463 · 188s · 95p</span></div>
+    <div class="bar-row"><span class="bar-name">PLAN_FIRST</span><div class="bar-track"><div class="bar-fill" style="width:39.3%"></div></div><span class="bar-value">182 · 120s · 66p</span></div>
+    <div class="bar-row"><span class="bar-name">REVIEW_CODE_ARCH</span><div class="bar-track"><div class="bar-fill seed" style="width:36.5%"></div></div><span class="bar-value">169 · 118s · 48p</span></div>
+    <div class="bar-row"><span class="bar-name">TICKET_TRACE</span><div class="bar-track"><div class="bar-fill" style="width:30.7%"></div></div><span class="bar-value">142 · 56s · 18p</span></div>
+    <div class="bar-row"><span class="bar-name">VERSION_BUMP</span><div class="bar-track"><div class="bar-fill" style="width:27.6%"></div></div><span class="bar-value">128 · 79s · 34p</span></div>
+    <div class="bar-row"><span class="bar-name">CI_LOCAL</span><div class="bar-track"><div class="bar-fill seed" style="width:24.2%"></div></div><span class="bar-value">112 · 61s · 36p</span></div>
+    <div class="bar-row"><span class="bar-name">SELF_REVIEW</span><div class="bar-track"><div class="bar-fill" style="width:24.2%"></div></div><span class="bar-value">112 · 84s · 48p</span></div>
+    <div class="bar-row"><span class="bar-name">ATOMIC_COMMITS</span><div class="bar-track"><div class="bar-fill" style="width:23.3%"></div></div><span class="bar-value">108 · 77s · 44p</span></div>
+    <div class="bar-row"><span class="bar-name">COVERAGE</span><div class="bar-track"><div class="bar-fill seed" style="width:21.6%"></div></div><span class="bar-value">100 · 46s · 22p</span></div>
+    <div class="bar-row"><span class="bar-name">CONVENTIONAL_COMMITS</span><div class="bar-track"><div class="bar-fill" style="width:21.2%"></div></div><span class="bar-value">98 · 84s · 43p</span></div>
+    <div class="bar-row"><span class="bar-name">TESTS</span><div class="bar-track"><div class="bar-fill seed" style="width:18.4%"></div></div><span class="bar-value">85 · 55s · 25p</span></div>
+    <div class="bar-row"><span class="bar-name">DEPENDENCIES</span><div class="bar-track"><div class="bar-fill" style="width:17.5%"></div></div><span class="bar-value">81 · 58s · 29p</span></div>
+    <div class="bar-row"><span class="bar-name">DELEGATE</span><div class="bar-track"><div class="bar-fill" style="width:16%"></div></div><span class="bar-value">74 · 46s · 27p</span></div>
+    <div class="bar-row"><span class="bar-name">RELEASE</span><div class="bar-track"><div class="bar-fill" style="width:15.6%"></div></div><span class="bar-value">72 · 47s · 17p</span></div>
+    <div class="bar-row"><span class="bar-name">ROBUST</span><div class="bar-track"><div class="bar-fill" style="width:14.5%"></div></div><span class="bar-value">67 · 52s · 39p</span></div>
+    <div class="bar-row"><span class="bar-name">FIX_ALL_FINDINGS</span><div class="bar-track"><div class="bar-fill" style="width:13.8%"></div></div><span class="bar-value">64 · 50s · 31p</span></div>
+    <div class="bar-row"><span class="bar-name">CRISP</span><div class="bar-track"><div class="bar-fill" style="width:13.2%"></div></div><span class="bar-value">61 · 50s · 26p</span></div>
+    <div class="bar-row"><span class="bar-name">CI_HOSTED</span><div class="bar-track"><div class="bar-fill seed" style="width:11.9%"></div></div><span class="bar-value">55 · 43s · 31p</span></div>
+    <div class="bar-row"><span class="bar-name">EVIDENCE</span><div class="bar-track"><div class="bar-fill" style="width:9.9%"></div></div><span class="bar-value">46 · 36s · 27p</span></div>
+    <div class="bar-row"><span class="bar-name">DOCUMENT_DECISION</span><div class="bar-track"><div class="bar-fill" style="width:6.5%"></div></div><span class="bar-value">30 · 25s · 23p</span></div>
+    <div class="bar-row"><span class="bar-name">README_BADGES</span><div class="bar-track"><div class="bar-fill seed" style="width:6.3%"></div></div><span class="bar-value">29 · 24s · 19p</span></div>
+    <div class="bar-row"><span class="bar-name">WATCH_CI</span><div class="bar-track"><div class="bar-fill" style="width:5.2%"></div></div><span class="bar-value">24 · 19s · 12p</span></div>
+    <div class="bar-row"><span class="bar-name">C4</span><div class="bar-track"><div class="bar-fill seed" style="width:3.9%"></div></div><span class="bar-value">18 · 18s · 14p</span></div>
+    <div class="bar-row"><span class="bar-name">MINIMAL_CHANGE</span><div class="bar-track"><div class="bar-fill" style="width:2.2%"></div></div><span class="bar-value">10 · 10s · 7p</span></div>
+    <div class="bar-row"><span class="bar-name">PRIVACY_REDACT</span><div class="bar-track"><div class="bar-fill" style="width:0.6%"></div></div><span class="bar-value">3 · 3s · 2p</span></div>
+  </div>
+  <div class="legend">
+    <span><span class="swatch"></span>Theme found in the data</span>
+    <span><span class="swatch faded"></span>Category expected before the data was read</span>
+    <span>s = sessions · p = project paths</span>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Vision check</p>
+  <h2>Where the hypothesis was right, and where it was not</h2>
+  <p class="lede">The investigation started with four expected categories. Two survived near the top, two
+  fell to the bottom, and the strongest theme was not on the list at all.</p>
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr><th>Expected before the data</th><th>Where it actually ranks</th><th>Reading</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>CI, including hosted and a local entry point</td>
+        <td>Local CI 6th (112), hosted CI 18th (55)</td>
+        <td>Confirmed, with a twist: the <em>local</em> gate matters twice as much as the hosted one. CI is
+        something he runs, not something that happens to him.</td>
+      </tr>
+      <tr>
+        <td>Meaningful testing, coverage, verifiable results</td>
+        <td>Coverage 9th (100), tests 11th (85), evidence 19th (46)</td>
+        <td>Confirmed. Coverage is mentioned more often than tests themselves — the number is the lever he
+        reaches for.</td>
+      </tr>
+      <tr>
+        <td>A polished README with useful badges</td>
+        <td>21st (29)</td>
+        <td>Overrated in the hypothesis. It is a finishing move, requested once per project rather than
+        repeatedly.</td>
+      </tr>
+      <tr>
+        <td>Project documentation and C4 architecture</td>
+        <td>C4 23rd (18), document-the-decision 20th (30)</td>
+        <td>Overrated, and narrower than expected: C4 appears in only two of four profiles.</td>
+      </tr>
+      <tr>
+        <td><em>Not expected</em></td>
+        <td>FINISH_ALL 1st (463), PLAN_FIRST 2nd (182), TICKET_TRACE 4th (142)</td>
+        <td>The real doctrine is about <strong>agent behaviour</strong> — completeness, planning,
+        traceability — not about artifacts. The artifacts were the visible symptom.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Counter-analysis</p>
+  <h2>Ten antitheses: what this doctrine does not cover</h2>
+  <p class="lede">Each card states the gap, why it matters at this scale of agent use, and the smallest
+  thing that would close it. Ordered by how much risk the gap carries in the way he currently works.</p>
+  <div class="cards">
+
+    <div class="card">
+      <span class="card-index">01</span><span class="chip">no stopping rule</span>
+      <h3>"Get all done" optimises finishing, never questioning</h3>
+      <p>463 prompts push an agent to complete the batch; almost none ask whether the batch was worth
+      building. The corpus contains features built and then deleted a few sessions later.</p>
+      <p class="missing"><strong>Close it:</strong> make "should this exist?" a required first line of every
+      plan, and let the agent propose deletion as an outcome, not only addition.</p>
+    </div>
+
+    <div class="card">
+      <span class="card-index">02</span><span class="chip">metric gaming</span>
+      <h3>Coverage is an execution metric pretending to be a quality metric</h3>
+      <p>Coverage is the ninth most repeated theme and is enforced with hard gates. A gate at 98% or even
+      100% proves lines ran, not that a wrong result would be caught.</p>
+      <p class="missing"><strong>Close it:</strong> add mutation testing to one repository and compare the
+      surviving-mutant rate with the coverage number. If they disagree, the gate is decorative.</p>
+    </div>
+
+    <div class="card">
+      <span class="card-index">03</span><span class="chip">echo chamber</span>
+      <h3>Self review plus AI review is one opinion, counted twice</h3>
+      <p>Review is the third-strongest theme, but the reviewer is usually the same model family that wrote
+      the code, or the same operator who ordered it. Agreement is cheap and looks like validation.</p>
+      <p class="missing"><strong>Close it:</strong> review with a different model than the author, prompt for
+      disconfirming evidence explicitly, and keep one human reviewer for anything that ships publicly.</p>
+    </div>
+
+    <div class="card">
+      <span class="card-index">04</span><span class="chip">absent</span>
+      <h3>Security and data retention barely appear at all</h3>
+      <p>Dependencies are updated for freshness (81 prompts), not for vulnerabilities; redaction appears
+      three times; secret scanning, threat modelling and a retention policy for captured prompt data appear
+      essentially never — in a workflow whose by-product is a database of private transcripts.</p>
+      <p class="missing"><strong>Close it:</strong> secret scanning and an advisory check in the same
+      pipeline that already gates coverage, plus one written retention and deletion rule for collected
+      agent data.</p>
+    </div>
+
+    <div class="card">
+      <span class="card-index">05</span><span class="chip">one-way door</span>
+      <h3>Releases have an accelerator and no brake</h3>
+      <p>"Push and make a public release" appears 72 times. Rollback, deprecation, migration and a changelog
+      written for a reader do not appear in any comparable number.</p>
+      <p class="missing"><strong>Close it:</strong> one release checklist item — how this gets reverted — and
+      a human-readable changelog entry per release, generated from the conventional commits already
+      required.</p>
+    </div>
+
+    <div class="card moderate">
+      <span class="card-index">06</span><span class="chip">semantics lost</span>
+      <h3>A version per commit turns SemVer into a build counter</h3>
+      <p>128 prompts insist on a version bump in every commit. The result is a number that increments
+      faithfully and communicates nothing: a consumer cannot distinguish a typo fix from a breaking change.</p>
+      <p class="missing"><strong>Close it:</strong> keep the per-commit counter for traceability, and add a
+      separate released version that only moves when behaviour changes.</p>
+    </div>
+
+    <div class="card moderate">
+      <span class="card-index">07</span><span class="chip">unpriced</span>
+      <h3>Speed is measured; cost, energy and quota are improvised</h3>
+      <p>Profiling gets requested when something feels slow, and quota limits show up as irritation rather
+      than as a metric. Delegation to smaller models (74 prompts) is the right instinct without a number
+      attached to it.</p>
+      <p class="missing"><strong>Close it:</strong> record tokens and wall time per completed task, and let
+      that decide which model gets the next batch.</p>
+    </div>
+
+    <div class="card moderate">
+      <span class="card-index">08</span><span class="chip">proxy outcome</span>
+      <h3>Tests verify the code, not whether the thing helps anyone</h3>
+      <p>The corpus is rich in engineering verification and thin in acceptance criteria stated from a user's
+      point of view; usability appears mostly as visual polish, accessibility almost not at all.</p>
+      <p class="missing"><strong>Close it:</strong> one acceptance sentence per feature in the user's own
+      words, checked at the end of the batch alongside the pipeline.</p>
+    </div>
+
+    <div class="card moderate">
+      <span class="card-index">09</span><span class="chip">write-only</span>
+      <h3>Documentation is optimised for the author's reading time</h3>
+      <p>"Crisp", "brief", "not tons" (61 prompts) is good discipline for prose and a poor fit for decision
+      history: why an option was chosen is the part a successor — or the same operator in three months —
+      actually needs.</p>
+      <p class="missing"><strong>Close it:</strong> keep the README short, and add a one-paragraph decision
+      record per significant choice, which the existing "document the decision" habit already almost does.</p>
+    </div>
+
+    <div class="card watch">
+      <span class="card-index">10</span><span class="chip">blind after ship</span>
+      <h3>The pipeline is watched; production is not</h3>
+      <p>"Watch the CI" and "overwatch" appear throughout, and they stop at the merge. Logs, metrics, alerts
+      and error budgets for the released software are absent from the corpus.</p>
+      <p class="missing"><strong>Close it:</strong> for anything with users, one health signal and one alert
+      as part of the definition of done — the same rigour that is already applied before the merge.</p>
+    </div>
+
+  </div>
+</section>
+
+<section class="method">
+  <p class="eyebrow">Method and limits</p>
+  <h2>How this was derived, and what it cannot claim</h2>
+  <p>Local Claude and Codex transcripts were captured into a private SQLite database (385,404 raw records,
+  2.4 GB) and frozen at a watermark. From 44,592 candidate user messages, tool results, injected context,
+  subagent and automated sessions were excluded, and near-simultaneous duplicates of the same prompt were
+  reconciled, leaving 7,882 likely human prompts; 126 remain explicitly uncertain. A local model
+  (<span class="quote">qwen3.5:4b</span> on loopback) labelled relevance; a deterministic pass then searched
+  every prompt for explicit phrasings, twelve from the original hypothesis and thirteen taken from the
+  corpus itself.</p>
+  <p>Three caveats travel with every number here. A phrase match is not a guideline — it can be a question,
+  a quote or a correction. A missing match is not an absent preference, because wording varies and the
+  corpus is typed fast. And the ranking measures what had to be <em>said</em>, which correlates with what
+  matters but also with what agents kept getting wrong. No prompt text is published: the corpus never
+  leaves the machine that collected it, and this page reports counts, not content.</p>
+  <p>The counter-analysis is not derived from the corpus — it is the argument from the other side, written
+  against it. Absence in a prompt log is weak evidence about a person's real practice, and some of these
+  gaps may be covered by habits that were never typed to an agent.</p>
+</section>
+
+<footer>
+  Recurrence Ranger · guideline catalog, evidence and performance review in the repository's docs folder ·
+  <a href="https://github.com/marcelpetrick/RecurrenceRanger">github.com/marcelpetrick/RecurrenceRanger</a>
+</footer>
+
+</div>
+</body>
+</html>
