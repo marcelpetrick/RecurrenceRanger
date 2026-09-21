@@ -9,8 +9,39 @@ turn them into an evidence-backed, reusable set of project expectations. Inspect
 all discoverable local user inputs from Claude, Claude DMO, Codex, and Codex DMO.
 One prompt can express several independent guidelines; extract each separately.
 
-The immediate work is planning and comparing two implementation approaches.
-Corpus extraction and implementation follow as a separate stage.
+The immediate work is documenting the plan and comparing two implementation
+approaches, with a local commit for each step. Marcel will then provide input
+on how to proceed. Do not start implementing or scanning the conversation corpus
+during this planning stage.
+
+The first implementation milestone is continuous capture into a reusable local
+database, with SQLite as the proposed storage. Backfill all retained in-scope
+history, then keep collecting new records as the tools run. Guideline extraction
+and synthesis are later milestones to plan in detail after capture is established.
+
+## Capture milestone and storage boundary
+
+"All data" means the discoverable conversation/session records for the four
+requested tool profiles, including the surrounding context needed for later
+analysis, not only prompts matching today's software-related keywords. Preserve
+raw records alongside normalized messages so future analyses do not depend on
+today's filters. Inventory other source formats before deciding how to ingest
+them; token totals alone cannot reconstruct lost conversations.
+
+Proposed SQLite entities are sources/files, ingestion checkpoints, sessions,
+raw records, normalized messages/content blocks, provenance links, and parse
+errors. Preserve roles, original text, timestamps, project/profile metadata,
+schema/parser versions, and relationships wherever the source supplies them.
+User-authorship decisions can be revised later without discarding source data.
+Embedded content remains in raw records; external attachment references are
+recorded, with attachment copying a separate scope decision.
+
+Continuous capture must support an initial backfill, incremental reads, safe
+restart, partial writes, file replacement/truncation, and duplicate locations.
+Commit records and their checkpoints together so crashes cannot silently skip
+data. Preserve provenance even when logical duplicate messages are reconciled.
+The database is a private local artifact, excluded from Git along with exports
+and SQLite sidecar files. Keep capture independent from later AI analysis.
 
 ## Starting hypotheses, not findings
 
@@ -52,9 +83,10 @@ Commit this step locally.
 
 ### 2. Compare two implementation plans
 
-Create `IMPLEMENTATION_OPTIONS.md` with two concrete alternatives, their work
-packages, tradeoffs, verification strategy, and a recommendation. Commit it
-separately. Keep the choice distinct from implementation.
+Create `IMPLEMENTATION_OPTIONS.md` with two concrete alternatives for historical
+and continuous SQLite capture, their work packages, tradeoffs, verification
+strategy, and a recommendation. Commit it separately. Wait for Marcel's input
+before implementation. Defer detailed analysis-system design.
 
 ### 3. Inventory sources and inspect schemas
 
@@ -74,7 +106,23 @@ separately. Keep the choice distinct from implementation.
 
 Deliverable: `SOURCE_INVENTORY.md` and a machine-readable source manifest.
 
-### 4. Extract a traceable user-input corpus
+### 4. Build historical and continuous database capture
+
+- Capture all in-scope conversation records before applying software-relevance
+  filters. Store original records and normalized representations in SQLite.
+- Backfill retained history, then continuously ingest new files and appended
+  records. Provide one-shot catch-up and resumable continuous operation.
+- Track file identity, generations, offsets, parser versions, and ingestion
+  status. Handle rotation/replacement and report collection failures visibly.
+- Verify restart behavior, transactional checkpoints, deduplication, and reading
+  the database for later analysis while capture is active.
+
+Deliverable: a populated reusable local database, working continuous collector,
+capture status/coverage report, and operational instructions. This is the first
+implementation milestone. Review its results with Marcel before planning the
+analysis stages below in detail.
+
+### 5. Later: derive a traceable user-input corpus from the database
 
 - Read source logs without changing them. Stream large files and report malformed
   records and incomplete trailing lines rather than silently losing them.
@@ -91,7 +139,7 @@ Deliverable: `SOURCE_INVENTORY.md` and a machine-readable source manifest.
 Deliverable: a normalized local corpus, exclusion/error ledger, and extraction
 statistics with stable IDs linking all later results to source records.
 
-### 5. Extract individual software guidelines
+### 6. Later: extract individual software guidelines
 
 - Examine every extracted human input for software relevance, using nearby
   conversation context when a short follow-up depends on it. Do not make keyword
@@ -106,7 +154,7 @@ statistics with stable IDs linking all later results to source records.
 
 Deliverable: structured guideline occurrences, each linked to its source prompt.
 
-### 6. Consolidate recurring preferences
+### 7. Later: consolidate recurring preferences
 
 - Group semantically equivalent instructions without erasing useful distinctions
   such as hosted CI versus local CI, tests versus coverage, or README versus
@@ -122,7 +170,7 @@ Deliverable: structured guideline occurrences, each linked to its source prompt.
 
 Deliverable: a ranked catalog with evidence, counts, scope, and conflicts.
 
-### 7. Validate coverage and write the reusable guidance
+### 8. Later: validate coverage and write the reusable guidance
 
 - Test extraction against representative schemas, mixed content blocks,
   duplicates, injected context, malformed records, and multiple rules per prompt.
@@ -135,7 +183,22 @@ Deliverable: a ranked catalog with evidence, counts, scope, and conflicts.
   `EVIDENCE.md` as the supporting catalog with safe excerpts and source references.
 - Document how to reproduce the extraction and update it with new sessions.
 
-## Completion criteria
+## Capture milestone completion criteria
+
+- All four requested profiles have an explicit inventory result.
+- All discovered in-scope retained records are stored, or failures and unsupported
+  formats are explicitly accounted for, without a software-keyword filter.
+- New records are collected continuously within a documented target delay.
+- Restarting or rescanning neither loses complete records nor creates duplicate
+  physical ingestion records; source aliases retain their provenance.
+- Partial writes, truncation/replacement, malformed records, and unavailable
+  sources have tested behavior and visible status.
+- SQLite can be queried for sessions, user messages, and original records, with
+  traceable source locations; backup and restore instructions are documented.
+- Code, schema, checks, and documentation are committed locally; database contents
+  and private exports remain outside version control.
+
+## Eventual guideline-analysis completion criteria
 
 - All four requested profiles have an explicit inventory result.
 - Every discovered in-scope source is processed or has a recorded reason it was
