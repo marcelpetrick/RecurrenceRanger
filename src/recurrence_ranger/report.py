@@ -36,7 +36,7 @@ def summarize(path: Path) -> dict:
                 "SELECT label,COUNT(*) FROM relevance GROUP BY label ORDER BY label"
             ).fetchall()
             result["relevance_model_errors"] = db.execute(
-                "SELECT COUNT(*) FROM relevance WHERE note IS NOT NULL"
+                "SELECT COUNT(*) FROM relevance WHERE note LIKE 'model output error:%'"
             ).fetchone()[0]
             result["relevance_remaining"] = db.execute(
                 """SELECT COUNT(*) FROM prompts p LEFT JOIN relevance r ON r.prompt_id=p.id

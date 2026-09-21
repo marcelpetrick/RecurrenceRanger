@@ -42,3 +42,25 @@ def test_bad_model_output_is_isolated_to_one_prompt(monkeypatch):
         2: ("uncertain", "model output error: ValueError"),
         3: ("software_instruction", None),
     }
+
+
+def test_exact_short_inputs_skip_the_model(tmp_path, monkeypatch):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
+        db.executemany(
+            "INSERT INTO prompts VALUES (?,?,?)",
+            [(1, "/exit", "human"), (2, "continue", "human")],
+        )
+
+    def should_not_run(*args):
+        raise AssertionError("model should not run for exact short inputs")
+
+    monkeypatch.setattr(classify, "_request", should_not_run)
+    summary = classify.classify(path)
+    assert summary["remaining"] == 0
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT label FROM relevance ORDER BY prompt_id").fetchall() == [
+            ("nonsoftware",),
+            ("uncertain",),
+        ]
