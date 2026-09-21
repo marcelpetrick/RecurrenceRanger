@@ -15,6 +15,7 @@ class Source:
     label: str
     home: Path
     origin: str
+    aliases: tuple[str, ...] = ()
 
     @property
     def id(self) -> str:
@@ -73,22 +74,38 @@ def discover(manifest: Path | None = None, *, home: Path | None = None) -> list[
                 candidates.append(Source(tool, path.name.lstrip("."), path, "home scan"))
     unique: dict[str, Source] = {}
     for source in candidates:
-        unique.setdefault(source.id, source)
+        previous = unique.get(source.id)
+        if previous:
+            unique[source.id] = Source(
+                previous.tool,
+                previous.label,
+                previous.home,
+                previous.origin,
+                (*previous.aliases, str(source.home)),
+            )
+        else:
+            unique[source.id] = source
     return list(unique.values())
 
 
 def conversation_files(source: Source) -> list[Path]:
     """Walk only transcript trees; do not follow directory symlinks."""
-    roots = [source.home / "projects"] if source.tool == "claude" else [
-        source.home / "sessions", source.home / "archived_sessions"
-    ]
+    roots = (
+        [source.home / "projects"]
+        if source.tool == "claude"
+        else [source.home / "sessions", source.home / "archived_sessions"]
+    )
     files: list[Path] = []
     for root in roots:
         for directory, dirs, names in os.walk(root, followlinks=False):
             dirs[:] = [name for name in dirs if not (Path(directory) / name).is_symlink()]
             files.extend(
-                Path(directory) / name for name in names
+                Path(directory) / name
+                for name in names
                 if name.endswith(".jsonl")
                 and (source.tool == "claude" or name.startswith("rollout-"))
             )
+    history = source.home / "history.jsonl"
+    if history.is_file():
+        files.append(history)
     return files

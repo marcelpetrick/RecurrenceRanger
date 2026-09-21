@@ -11,9 +11,14 @@ def line(record):
 
 
 def claude_message(text, uuid="one"):
-    return {"type": "user", "sessionId": "session", "uuid": uuid,
-            "timestamp": "2026-09-21T00:00:00Z", "cwd": "/project",
-            "message": {"role": "user", "content": text}}
+    return {
+        "type": "user",
+        "sessionId": "session",
+        "uuid": uuid,
+        "timestamp": "2026-09-21T00:00:00Z",
+        "cwd": "/project",
+        "message": {"role": "user", "content": text},
+    }
 
 
 def setup(tmp_path):
@@ -27,8 +32,7 @@ def setup(tmp_path):
 
 def test_capture_restart_and_distinct_identical_turns(tmp_path):
     source, path, store, collector = setup(tmp_path)
-    path.write_bytes(line(claude_message("same", "one")) +
-                     line(claude_message("same", "two")))
+    path.write_bytes(line(claude_message("same", "one")) + line(claude_message("same", "two")))
     assert collector.scan_file(source, path).records == 2
     store.close()
     store = Store(tmp_path / "db.sqlite3")
@@ -82,17 +86,40 @@ def test_malformed_is_retained_and_write_failure_does_not_advance(tmp_path):
 
 def test_codex_message_and_unknown_record(tmp_path):
     home = tmp_path / "codex"
-    path = (home / "sessions" /
-            "rollout-2026-09-21T00-00-00-12345678-1234-1234-1234-123456789012.jsonl")
+    path = (
+        home / "sessions" / "rollout-2026-09-21T00-00-00-12345678-1234-1234-1234-123456789012.jsonl"
+    )
     path.parent.mkdir(parents=True)
-    path.write_bytes(line({"type": "response_item", "timestamp": "now", "payload": {
-        "type": "message", "role": "user", "content": [{"type": "input_text", "text": "hello"}]}}) +
-        line({"type": "future_event", "payload": {"value": 1}}))
+    path.write_bytes(
+        line(
+            {
+                "type": "session_meta",
+                "payload": {"id": "12345678-1234-1234-1234-123456789012", "cwd": "/repo"},
+            }
+        )
+        + line({"type": "event_msg", "payload": {"type": "user_message", "message": "earlier"}})
+        + line(
+            {
+                "type": "response_item",
+                "timestamp": "now",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "hello"}],
+                },
+            }
+        )
+        + line({"type": "future_event", "payload": {"value": 1}})
+    )
     store = Store(tmp_path / "db.sqlite3")
     source = Source("codex", "Codex", home, "test")
-    assert Collector(store).scan_once([source]).records == 2
-    assert store.db.execute("SELECT text,role FROM messages").fetchone() == ("hello", "user")
-    assert store.db.execute("SELECT COUNT(*) FROM raw_records").fetchone()[0] == 2
+    assert Collector(store).scan_once([source]).records == 4
+    assert store.db.execute("SELECT text,role FROM messages WHERE kind='message'").fetchone() == (
+        "hello",
+        "user",
+    )
+    assert store.db.execute("SELECT project FROM sessions").fetchone() == ("/repo",)
+    assert store.db.execute("SELECT COUNT(*) FROM raw_records").fetchone()[0] == 4
     store.close()
 
 

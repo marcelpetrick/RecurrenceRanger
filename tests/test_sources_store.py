@@ -12,10 +12,17 @@ def test_discovery_keeps_explicit_missing_and_deduplicates_alias(tmp_path, monke
     (home / ".claude" / "projects").mkdir(parents=True)
     (home / ".claude-copy").symlink_to(home / ".claude")
     manifest = tmp_path / "sources.json"
-    manifest.write_text(json.dumps({"schema_version": 1, "sources": [
-        {"tool": "claude", "label": "Primary", "home": str(home / ".claude-copy")},
-        {"tool": "codex", "label": "Missing", "home": str(home / ".codex-dmo")},
-    ]}))
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "sources": [
+                    {"tool": "claude", "label": "Primary", "home": str(home / ".claude-copy")},
+                    {"tool": "codex", "label": "Missing", "home": str(home / ".codex-dmo")},
+                ],
+            }
+        )
+    )
     monkeypatch.setenv("HOME", str(home))
     sources = discover(manifest, home=home)
     assert len([s for s in sources if s.tool == "claude"]) == 1
@@ -35,10 +42,12 @@ def test_store_schema_backup_and_newer_version_guard(tmp_path):
     path = tmp_path / "private" / "db.sqlite3"
     store = Store(path)
     assert path.stat().st_mode & 0o777 == 0o600
-    assert store.db.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert store.db.execute("PRAGMA user_version").fetchone()[0] == 2
     with store.db:
-        store.db.execute("INSERT INTO sources VALUES (?,?,?,?,?,?,?)", (
-            "claude:one", "claude", "One", "/one", "test", 1, "now"))
+        store.db.execute(
+            "INSERT INTO sources VALUES (?,?,?,?,?,?,?)",
+            ("claude:one", "claude", "One", "/one", "test", 1, "now"),
+        )
     backup = tmp_path / "backup.sqlite3"
     store.backup(backup)
     assert sqlite3.connect(backup).execute("SELECT label FROM sources").fetchone() == ("One",)

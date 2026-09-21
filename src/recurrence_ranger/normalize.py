@@ -55,6 +55,20 @@ def _codex_session(path: Path) -> str:
     return found.group(1) if found else str(path)
 
 
+def codex_session_project(path: Path, data: bytes) -> tuple[str, str] | None:
+    """Read project metadata from the rollout header when available."""
+    try:
+        record = json.loads(data)
+    except (UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(record, dict) or record.get("type") != "session_meta":
+        return None
+    payload = record.get("payload")
+    if not isinstance(payload, dict) or not isinstance(payload.get("cwd"), str):
+        return None
+    return _codex_session(path), payload["cwd"]
+
+
 def parse_record(tool: str, path: Path, data: bytes) -> tuple[str, str | None, Message | None]:
     """Return parse status, error, and optional message without discarding source bytes."""
     try:
@@ -63,6 +77,28 @@ def parse_record(tool: str, path: Path, data: bytes) -> tuple[str, str | None, M
         return "malformed", str(error)[:500], None
     if not isinstance(record, dict):
         return "unsupported", "JSON root is not an object", None
+    if path.name == "history.jsonl":
+        value = record.get("display") if tool == "claude" else record.get("text")
+        if not isinstance(value, str):
+            return "unsupported", "history entry has no text", None
+        session = record.get("sessionId") or record.get("session_id") or "unknown"
+        stamp = record.get("timestamp") or record.get("ts")
+        project = record.get("project")
+        return (
+            "parsed",
+            None,
+            Message(
+                str(session),
+                None,
+                "user",
+                "history",
+                str(stamp) if stamp else None,
+                str(project) if project else None,
+                value,
+                None,
+                (Block("text", value, None),),
+            ),
+        )
     kind = record.get("type")
     if not isinstance(kind, str):
         return "unsupported", "missing record type", None
@@ -74,26 +110,66 @@ def parse_record(tool: str, path: Path, data: bytes) -> tuple[str, str | None, M
             return "unsupported", "message field is not an object", None
         blocks = _blocks(inner.get("content"))
         session = record.get("sessionId") or path.stem
-        return "parsed", None, Message(
-            str(session), str(record["uuid"]) if record.get("uuid") else None,
-            str(inner.get("role") or kind), kind,
-            str(record["timestamp"]) if record.get("timestamp") else None,
-            str(record["cwd"]) if record.get("cwd") else None,
-            "\n".join(block.text for block in blocks if block.text is not None) or None,
-            str(record["parentUuid"]) if record.get("parentUuid") else None, blocks,
+        return (
+            "parsed",
+            None,
+            Message(
+                str(session),
+                str(record["uuid"]) if record.get("uuid") else None,
+                str(inner.get("role") or kind),
+                kind,
+                str(record["timestamp"]) if record.get("timestamp") else None,
+                str(record["cwd"]) if record.get("cwd") else None,
+                "\n".join(block.text for block in blocks if block.text is not None) or None,
+                str(record["parentUuid"]) if record.get("parentUuid") else None,
+                blocks,
+            ),
         )
     if tool == "codex":
+        if kind == "event_msg":
+            payload = record.get("payload")
+            if isinstance(payload, dict) and payload.get("type") in {
+                "user_message",
+                "agent_message",
+            }:
+                value = payload.get("message")
+                if isinstance(value, str):
+                    role = "user" if payload["type"] == "user_message" else "assistant"
+                    return (
+                        "parsed",
+                        None,
+                        Message(
+                            _codex_session(path),
+                            None,
+                            role,
+                            str(payload["type"]),
+                            str(record["timestamp"]) if record.get("timestamp") else None,
+                            None,
+                            value,
+                            None,
+                            (Block("text", value, None),),
+                        ),
+                    )
+            return "parsed", None, None
         if kind != "response_item":
             return "parsed", None, None
         payload = record.get("payload")
         if not isinstance(payload, dict) or payload.get("type") != "message":
             return "parsed", None, None
         blocks = _blocks(payload.get("content"))
-        return "parsed", None, Message(
-            _codex_session(path), str(payload["id"]) if payload.get("id") else None,
-            str(payload.get("role") or "unknown"), "message",
-            str(record["timestamp"]) if record.get("timestamp") else None,
-            None, "\n".join(block.text for block in blocks if block.text is not None) or None,
-            None, blocks,
+        return (
+            "parsed",
+            None,
+            Message(
+                _codex_session(path),
+                str(payload["id"]) if payload.get("id") else None,
+                str(payload.get("role") or "unknown"),
+                "message",
+                str(record["timestamp"]) if record.get("timestamp") else None,
+                None,
+                "\n".join(block.text for block in blocks if block.text is not None) or None,
+                None,
+                blocks,
+            ),
         )
     return "unsupported", f"unknown tool: {tool}", None
