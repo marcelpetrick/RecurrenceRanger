@@ -23,8 +23,8 @@ class Source:
 
     @property
     def exists(self) -> bool:
-        root = "projects" if self.tool == "claude" else "sessions"
-        return (self.home / root).is_dir()
+        roots = ("projects",) if self.tool == "claude" else ("sessions", "archived_sessions")
+        return any((self.home / root).is_dir() for root in roots)
 
 
 def load_manifest(path: Path) -> list[Source]:
@@ -70,7 +70,8 @@ def discover(manifest: Path | None = None, *, home: Path | None = None) -> list[
         candidates.append(Source(tool, name.lstrip("."), home / name, "default"))
     for tool, pattern in (("claude", ".claude*"), ("codex", ".codex*")):
         for path in home.glob(pattern):
-            if path.is_dir():
+            roots = ("projects",) if tool == "claude" else ("sessions", "archived_sessions")
+            if any((path / root).is_dir() for root in roots):
                 candidates.append(Source(tool, path.name.lstrip("."), path, "home scan"))
     unique: dict[str, Source] = {}
     for source in candidates:

@@ -11,6 +11,7 @@ def test_discovery_keeps_explicit_missing_and_deduplicates_alias(tmp_path, monke
     home = tmp_path / "home"
     (home / ".claude" / "projects").mkdir(parents=True)
     (home / ".claude-copy").symlink_to(home / ".claude")
+    (home / ".claude.lock").mkdir()
     manifest = tmp_path / "sources.json"
     manifest.write_text(
         json.dumps(
