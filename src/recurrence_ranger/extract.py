@@ -69,7 +69,8 @@ FORMAT = {
 
 
 def _request(rows: list[tuple[int, str]], model: str, endpoint: str) -> dict[int, list[str]]:
-    items = [{"id": row_id, "text": text[:6000]} for row_id, text in rows]
+    budget = localmodel.item_chars(len(rows))
+    items = [{"id": row_id, "text": text[:budget]} for row_id, text in rows]
     payload = {
         "model": model,
         "prompt": INSTRUCTION + "\nInputs:\n" + json.dumps(items, ensure_ascii=False),

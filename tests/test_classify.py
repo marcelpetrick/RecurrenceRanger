@@ -72,7 +72,7 @@ def test_exact_short_inputs_skip_the_model(tmp_path, monkeypatch):
 def test_local_request_batches_prompts_and_maps_codes(local_model):
     sent = local_model({"labels": ["I", "N"]})
     labels = classify._request(
-        [(7, "add tests"), (9, "x" * 7000)],
+        [(7, "add tests"), (9, "x" * (localmodel.REQUEST_CHARS + 1))],
         "qwen3.5:4b",
         "http://127.0.0.1:11434/api/generate",
     )
@@ -85,7 +85,7 @@ def test_local_request_batches_prompts_and_maps_codes(local_model):
     assert payload["format"]["required"] == ["labels"]
     items = json.loads(payload["prompt"][payload["prompt"].index("\n[") + 1 :])
     assert [item["id"] for item in items] == [7, 9]
-    assert len(items[1]["text"]) == 6000
+    assert len(items[1]["text"]) == localmodel.item_chars(2)
 
 
 def test_a_short_label_list_is_rejected(local_model):
@@ -100,7 +100,10 @@ def test_truncated_prompts_are_recorded_as_truncated(tmp_path, local_model):
     path = tmp_path / "corpus.sqlite3"
     with sqlite3.connect(path) as db:
         db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
-        db.execute("INSERT INTO prompts VALUES (1,?,'human')", ("y" * 6001,))
+        db.execute(
+            "INSERT INTO prompts VALUES (1,?,'human')",
+            ("y" * (localmodel.item_chars(1) + 1),),
+        )
     local_model({"labels": ["I"]})
     assert classify.classify(path)["classified_this_run"] == 1
     with sqlite3.connect(path) as db:

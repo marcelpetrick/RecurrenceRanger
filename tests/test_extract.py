@@ -60,7 +60,7 @@ def _corpus_with_prompts(path, rows):
 def test_local_request_returns_deduplicated_theme_codes(local_model):
     sent = local_model({"themes": [["TESTS", "TESTS", "CI_LOCAL"], []]})
     themes = extract._request(
-        [(3, "run the local pipeline with tests"), (4, "z" * 7000)],
+        [(3, "run the local pipeline with tests"), (4, "z" * (localmodel.REQUEST_CHARS + 1))],
         "qwen3.5:4b",
         "http://127.0.0.1:11434/api/generate",
     )
@@ -68,7 +68,7 @@ def test_local_request_returns_deduplicated_theme_codes(local_model):
     payload = sent[0]["payload"]
     assert payload["options"]["num_predict"] == 400
     items = json.loads(payload["prompt"][payload["prompt"].index("\n[") + 1 :])
-    assert len(items[1]["text"]) == 6000
+    assert len(items[1]["text"]) == localmodel.item_chars(2)
 
 
 def test_unknown_or_missing_theme_lists_are_rejected(local_model):

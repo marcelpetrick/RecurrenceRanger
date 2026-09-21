@@ -64,7 +64,8 @@ FORMAT = {
 
 
 def _request(rows: list[tuple[int, str]], model: str, endpoint: str) -> dict[int, str]:
-    items = [{"id": row_id, "text": text[:6000]} for row_id, text in rows]
+    budget = localmodel.item_chars(len(rows))
+    items = [{"id": row_id, "text": text[:budget]} for row_id, text in rows]
     payload = {
         "model": model,
         "prompt": INSTRUCTION + "\n" + json.dumps(items, ensure_ascii=False),
@@ -163,7 +164,7 @@ def classify(
                             model,
                             PROMPT_VERSION,
                             utc_now(),
-                            int(len(text) > 6000),
+                            int(len(text) > localmodel.item_chars(len(rows))),
                             labels[row_id][1],
                         )
                         for row_id, text in rows

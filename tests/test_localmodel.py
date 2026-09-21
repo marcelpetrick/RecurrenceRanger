@@ -65,3 +65,11 @@ def test_a_recovered_endpoint_answers_after_one_retry(monkeypatch):
     monkeypatch.setattr(localmodel.time, "sleep", lambda _seconds: None)
     assert localmodel.generate({}, "http://127.0.0.1:1/api/generate") == {"labels": ["I"]}
     assert len(calls) == 2
+
+
+def test_the_request_budget_shrinks_with_the_batch():
+    assert localmodel.item_chars(1) == localmodel.REQUEST_CHARS
+    assert localmodel.item_chars(4) == localmodel.REQUEST_CHARS // 4
+    assert localmodel.item_chars(5) == localmodel.REQUEST_CHARS // 5
+    assert localmodel.item_chars(100) == localmodel.MINIMUM_ITEM_CHARS
+    assert localmodel.item_chars(5) * 5 <= localmodel.REQUEST_CHARS

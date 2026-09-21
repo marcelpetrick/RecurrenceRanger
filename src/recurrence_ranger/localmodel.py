@@ -11,6 +11,10 @@ from typing import Any
 TIMEOUT_SECONDS = 300
 TRANSPORT_ATTEMPTS = 3
 BACKOFF_SECONDS = 2.0
+CONTEXT_TOKENS = 8192
+# Roughly four characters per token, leaving room for the instructions and the answer.
+REQUEST_CHARS = 24_000
+MINIMUM_ITEM_CHARS = 1_200
 
 
 class EndpointUnavailable(RuntimeError):
@@ -21,6 +25,16 @@ def require_loopback(endpoint: str, stage: str) -> None:
     """Refuse any endpoint that could send prompt text off the machine."""
     if not endpoint.startswith("http://127.0.0.1:"):
         raise ValueError(f"{stage} endpoint must use local loopback")
+
+
+def item_chars(count: int) -> int:
+    """Share the request budget between the prompts in one batch.
+
+    A batch that exceeds the context window is silently truncated by the model, which
+    then answers for fewer prompts than were sent and forces the caller to split and
+    ask again. Sizing the excerpts to the batch avoids that round trip.
+    """
+    return max(MINIMUM_ITEM_CHARS, REQUEST_CHARS // count)
 
 
 def generate(payload: dict, endpoint: str) -> Any:
