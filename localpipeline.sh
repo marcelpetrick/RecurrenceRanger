@@ -12,6 +12,9 @@ else
   PYTHON=python3
 fi
 
+echo "== pinned tools =="
+"$PYTHON" scripts/tool_versions.py
+
 echo "== formatting =="
 "$PYTHON" -m ruff format --check src tests scripts
 

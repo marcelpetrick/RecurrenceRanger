@@ -36,6 +36,7 @@ on 2026-09-22 with Python 3.14.7:
 
 | Stage | Pinned tool | Command |
 | --- | --- | --- |
+| Pinned tools | this repository | `scripts/tool_versions.py` |
 | Formatting | `ruff==0.15.20` | `ruff format --check src tests scripts` |
 | Lint | `ruff==0.15.20` | `ruff check src tests scripts` |
 | Static analysis | `mypy==2.3.1` | `mypy` (`src` and `scripts`, untyped definitions rejected) |
@@ -46,8 +47,10 @@ on 2026-09-22 with Python 3.14.7:
 
 The gate compares the measured percentage strictly, so exactly 98% fails.
 `COVERAGE_MINIMUM` and `COVERAGE_REPORT` override the threshold and report path.
-The measured result is 100% of 1,026 statements and 320 branches across `src`
-and `scripts`, from 99 tests; the report file itself is not committed.
+The measured result is 100% of 1,069 statements and 332 branches across `src`
+and `scripts`, from 105 tests; the report file itself is not committed. The
+first stage fails when an installed tool drifts from its pin, so a local run
+and a CI run check the same code with the same tools.
 
 The tests behind that number exercise real behavior: temporary git repositories
 for the version history, real SQLite databases and JSONL files for capture and

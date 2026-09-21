@@ -73,9 +73,9 @@ enabled. Check the service status and collection lag after startup.
 
 ## Checks, backup, and restore
 
-Run the same pipeline that hosted CI runs. It checks formatting, lint, static
-analysis, every test, a measured coverage report, the coverage gate and the
-version history:
+Run the same pipeline that hosted CI runs. It checks the pinned tool versions,
+formatting, lint, static analysis, every test, a measured coverage report, the
+coverage gate and the version history:
 
 ```sh
 ./localpipeline.sh
