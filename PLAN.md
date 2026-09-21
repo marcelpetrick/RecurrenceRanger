@@ -1,6 +1,6 @@
 # Extract Marcel's software-project guidelines from local AI history
 
-Date: 2026-09-21
+Date: 2026-09-21, pipeline section added 2026-09-22
 
 ## Current priority and stop point
 
@@ -24,14 +24,38 @@ Marcel's current ordered work request is:
    history was verified and pushed.
 4. Stop after the versioning change. The private corpus and unfinished model
    work remain resumable. Resume guideline analysis only on a later request.
+5. Provide a `localpipeline` entry point for all code changes, with a gate that
+   fails unless overall coverage is strictly greater than 98%. Complete; see
+   the section below. Guideline analysis remains paused until requested.
 
-The next implementation task after this stop is a `localpipeline` entry point
-for all code changes. It must run formatting and lint checks, static code
-analysis, every test, and a measured coverage report. Its gate must fail unless
-overall coverage is strictly greater than 98%. Hosted CI must run the same
-pipeline, and the tests behind that threshold must exercise real behavior rather
-than mirror the implementation. Record the exact tools, commands, and coverage
-result when this follow-up task is implemented.
+## Local pipeline and coverage gate
+
+[localpipeline.sh](localpipeline.sh) is the single entry point for every code
+change, and `.github/workflows/ci.yml` runs the same script on GitHub. Measured
+on 2026-09-22 with Python 3.14.7:
+
+| Stage | Pinned tool | Command |
+| --- | --- | --- |
+| Formatting | `ruff==0.15.20` | `ruff format --check src tests scripts` |
+| Lint | `ruff==0.15.20` | `ruff check src tests scripts` |
+| Static analysis | `mypy==2.3.1` | `mypy` (`src` and `scripts`, untyped definitions rejected) |
+| Tests | `pytest==9.1.1` | `coverage run -m pytest -q` |
+| Coverage report | `coverage==7.16.1` | `coverage report` and `coverage json` |
+| Coverage gate | this repository | `scripts/coverage_gate.py coverage.json --minimum 98` |
+| Version history | this repository | `scripts/versioning.py check` |
+
+The gate compares the measured percentage strictly, so exactly 98% fails.
+`COVERAGE_MINIMUM` and `COVERAGE_REPORT` override the threshold and report path.
+The measured result is 100% of 1,026 statements and 320 branches across `src`
+and `scripts`, from 99 tests; the report file itself is not committed.
+
+The tests behind that number exercise real behavior: temporary git repositories
+for the version history, real SQLite databases and JSONL files for capture and
+derivation, SQLite triggers for storage failures, signals for the collector
+service, and canned local-model answers so no prompt text and no network call
+leaves the machine. Two defects surfaced while covering these paths: the version
+check crashed on a repository without commits, and the collector command
+dispatch had an unreachable branch. Both are fixed in their own commits.
 
 ## Objective
 
@@ -267,7 +291,8 @@ detected gaps rather than promising lossless capture under all circumstances.
 
 ## Local commit practice
 
-Review each step's diff and run checks appropriate to its contents before
+Review each step's diff and run `./localpipeline.sh` for every code change;
+its version-history stage expects a clean working tree, so run it right after
 committing. Stage only that step's files. Keep source logs unchanged and private
 corpus artifacts untracked/ignored. Increment the patch version once in every
 commit, starting with `0.0.1` in the root commit; keep package version fields in
