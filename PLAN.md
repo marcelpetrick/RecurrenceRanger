@@ -15,14 +15,15 @@ Marcel's current ordered work request is:
 1. Finish and commit the direct-mention evidence audit. Complete: the audit is
    committed with a synthetic test. Its keyword counts are search aids, not
    validated guideline counts.
-2. Update and commit the plan and documentation. This is the current step.
+2. Update and commit the plan and documentation. Complete.
 3. Make every commit follow patch SemVer, starting at `0.0.1` in the root
    commit and increasing by one patch number for every later commit. Rewrite
    existing commits to add the correct version to each tree, align package
    version fields where present, verify the whole sequence, and force push the
-   rewritten `master` branch as explicitly requested.
-4. Stop after the versioning change. Resume guideline analysis only on a later
-   request; the private corpus and unfinished model work remain resumable.
+   rewritten `master` branch as explicitly requested. Complete; the rewritten
+   history was verified and pushed.
+4. Stop after the versioning change. The private corpus and unfinished model
+   work remain resumable. Resume guideline analysis only on a later request.
 
 The next implementation task after this stop is a `localpipeline` entry point
 for all code changes. It must run formatting and lint checks, static code
