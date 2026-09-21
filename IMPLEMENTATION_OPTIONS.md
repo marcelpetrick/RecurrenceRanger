@@ -2,8 +2,9 @@
 
 Date: 2026-09-21
 
-Status: proposals only. No collector has been implemented or started. Marcel will
-provide the next direction after reviewing these documents.
+Status: Option A selected on 2026-09-21. See
+[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the implementation handoff.
+No collector has been implemented or started.
 
 ## Shared objective
 
@@ -154,11 +155,11 @@ limits in the capture status and inventory.
 
 ## Decisions and later work
 
-Marcel's next input will determine the chosen option, implementation location,
-database location, and whether persistent service installation belongs in the
-first implementation pass. Source inventory will establish actual formats and
-retained history. Attachment copying and any non-conversation data remain
-separate scope decisions.
+Marcel selected Option A. The separate implementation location, database
+location, and whether persistent service installation belongs in the first
+implementation pass remain to be decided before implementation. Source
+inventory will establish actual formats and retained history. Attachment
+copying and any non-conversation data remain separate scope decisions.
 
 After capture works, plan relevance classification, atomic guideline extraction,
 recurrence analysis, and reusable agent instructions using the retained database.

@@ -9,15 +9,17 @@ turn them into an evidence-backed, reusable set of project expectations. Inspect
 all discoverable local user inputs from Claude, Claude DMO, Codex, and Codex DMO.
 One prompt can express several independent guidelines; extract each separately.
 
-The immediate work is documenting the plan and comparing two implementation
-approaches, with a local commit for each step. Marcel will then provide input
-on how to proceed. Do not start implementing or scanning the conversation corpus
-during this planning stage.
+The initial work documented the plan and compared two implementation
+approaches, with a local commit for each step. Marcel selected Option A and
+requested a detailed implementation handoff. Do not start implementing or
+scanning the conversation corpus during this planning stage.
 
 The first implementation milestone is continuous capture into a reusable local
 database, with SQLite as the proposed storage. Backfill all retained in-scope
-history, then keep collecting new records as the tools run. Guideline extraction
+history while collecting new records as the tools run. Guideline extraction
 and synthesis are later milestones to plan in detail after capture is established.
+Option A (periodic incremental polling) was selected on 2026-09-21; its
+implementation handoff is [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
 ## Capture milestone and storage boundary
 
@@ -91,8 +93,8 @@ Commit this step locally.
 
 Create `IMPLEMENTATION_OPTIONS.md` with two concrete alternatives for historical
 and continuous SQLite capture, their work packages, tradeoffs, verification
-strategy, and a recommendation. Commit it separately. Wait for Marcel's input
-before implementation. Defer detailed analysis-system design.
+strategy, and a recommendation. Commit it separately. Marcel selected Option A;
+see `IMPLEMENTATION_PLAN.md`. Defer detailed analysis-system design.
 
 ### 3. Inventory sources and inspect schemas
 
