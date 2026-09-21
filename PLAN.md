@@ -48,7 +48,16 @@ Marcel's current ordered work request is:
    Local Pipeline and Quality both pass on `master`. A test run with
    `publish_release=false` verified the release workflow before publishing.
 
-   Guideline analysis stays paused until Marcel requests it.
+7. Run the analysis on the real local data and answer the original question:
+   which advice and guidance does Marcel repeat for software development?
+   - catch up capture, then triage, recall and extract over the fixed corpus,
+   - profile the program and the whole workflow, report findings in the style of
+     a branch review, and fix them,
+   - check the observations against the initial vision in this plan,
+   - write the result into `docs/`: the guideline catalog, its evidence, the
+     performance review, and an HTML summary of Marcel's view on agentic
+     software development including its gaps and ten antitheses,
+   - then push and publish a release.
 
 ## Local pipeline and coverage gate
 
