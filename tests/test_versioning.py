@@ -166,3 +166,9 @@ def test_check_reports_an_unborn_branch_instead_of_crashing(tmp_path, monkeypatc
     monkeypatch.setattr(versioning, "ROOT", root)
     with pytest.raises(ValueError, match="no commits to check"):
         versioning.check()
+
+
+def test_check_accepts_a_history_without_package_version_fields(tmp_path, monkeypatch):
+    root = repo_with_versions(tmp_path / "repo", 2, project=False, package=False)
+    monkeypatch.setattr(versioning, "ROOT", root)
+    assert versioning.check() == "0.0.2"

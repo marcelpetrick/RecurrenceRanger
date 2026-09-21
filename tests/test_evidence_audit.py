@@ -1,6 +1,7 @@
+import json
 import sqlite3
 
-from recurrence_ranger.evidence_audit import audit
+from recurrence_ranger.evidence_audit import audit, main
 
 
 def test_audit_counts_distinct_sources_and_excludes_planning_prompts(tmp_path):
@@ -48,3 +49,24 @@ def test_audit_counts_distinct_sources_and_excludes_planning_prompts(tmp_path):
     }
     assert result["CI_HOSTED"]["sample_raw_record_ids"] == [4]
     assert result["C4"]["matching_prompts"] == 0
+
+
+def test_audit_command_prints_counts_without_prompt_text(tmp_path, capsys):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute(
+            """CREATE TABLE prompts (
+                 primary_record_id INTEGER, profile TEXT, session TEXT,
+                 project TEXT, text TEXT, authorship TEXT)"""
+        )
+        db.execute(
+            "INSERT INTO prompts VALUES (5,'claude','one','/a',?,'human')",
+            ("Run the localpipeline.sh before every commit, and keep it robust.",),
+        )
+    assert main([str(path)]) == 0
+    printed = capsys.readouterr().out
+    assert "localpipeline" not in printed
+    counts = json.loads(printed)
+    assert counts["CI_LOCAL"]["sample_raw_record_ids"] == [5]
+    assert counts["ROBUST"]["matching_prompts"] == 1
+    assert counts["COVERAGE"]["matching_prompts"] == 0
