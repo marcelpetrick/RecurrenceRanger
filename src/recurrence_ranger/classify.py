@@ -5,10 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
-import urllib.error
-import urllib.request
 from pathlib import Path
 
+from recurrence_ranger import localmodel
 from recurrence_ranger.store import utc_now
 
 PROMPT_VERSION = 2
@@ -77,14 +76,7 @@ def _request(rows: list[tuple[int, str]], model: str, endpoint: str) -> dict[int
             "num_predict": max(100, 6 * len(rows)),
         },
     }
-    request = urllib.request.Request(
-        endpoint,
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(request, timeout=300) as response:
-        answer = json.load(response)
-    values = json.loads(answer["response"])["labels"]
+    values = localmodel.generate(payload, endpoint)["labels"]
     if not isinstance(values, list) or len(values) != len(rows):
         raise ValueError("model returned wrong number of labels")
     return {row_id: LABELS[code] for (row_id, _), code in zip(rows, values, strict=True)}
@@ -95,7 +87,7 @@ def _classify_rows(
 ) -> dict[int, tuple[str, str | None]]:
     try:
         return {row_id: (label, None) for row_id, label in _request(rows, model, endpoint).items()}
-    except (ValueError, KeyError, TypeError, json.JSONDecodeError, urllib.error.URLError) as error:
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
         if len(rows) == 1:
             return {rows[0][0]: ("uncertain", f"model output error: {type(error).__name__}")}
         middle = len(rows) // 2
@@ -130,8 +122,7 @@ def classify(
     batch_size: int = 5,
     limit: int = 0,
 ) -> dict:
-    if not endpoint.startswith("http://127.0.0.1:"):
-        raise ValueError("classification endpoint must use local loopback")
+    localmodel.require_loopback(endpoint, "classification")
     if batch_size < 1:
         raise ValueError("batch size must be positive")
     path = path.expanduser()

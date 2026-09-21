@@ -5,10 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
-import urllib.error
-import urllib.request
 from pathlib import Path
 
+from recurrence_ranger import localmodel
 from recurrence_ranger.store import utc_now
 
 EXTRACTOR_VERSION = 1
@@ -78,14 +77,7 @@ def _request(rows: list[tuple[int, str]], model: str, endpoint: str) -> dict[int
         "format": FORMAT,
         "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 400},
     }
-    request = urllib.request.Request(
-        endpoint,
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(request, timeout=300) as response:
-        answer = json.load(response)
-    values = json.loads(answer["response"])["themes"]
+    values = localmodel.generate(payload, endpoint)["themes"]
     if not isinstance(values, list) or len(values) != len(rows):
         raise ValueError("model returned wrong number of theme lists")
     if any(
@@ -102,7 +94,7 @@ def _extract_rows(
 ) -> dict[int, tuple[list[str], str | None]]:
     try:
         return {row_id: (codes, None) for row_id, codes in _request(rows, model, endpoint).items()}
-    except (ValueError, KeyError, TypeError, json.JSONDecodeError, urllib.error.URLError) as error:
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
         if len(rows) == 1:
             return {rows[0][0]: ([], f"model output error: {type(error).__name__}")}
         middle = len(rows) // 2
@@ -119,8 +111,7 @@ def extract(
     batch_size: int = 5,
     limit: int = 0,
 ) -> dict:
-    if not endpoint.startswith("http://127.0.0.1:"):
-        raise ValueError("extraction endpoint must use local loopback")
+    localmodel.require_loopback(endpoint, "extraction")
     if batch_size < 1:
         raise ValueError("batch size must be positive")
     path = path.expanduser()
