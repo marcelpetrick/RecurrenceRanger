@@ -77,3 +77,42 @@ def test_generated_context_is_not_treated_as_human_input():
         2, "Codex", "codex", "s", "message", None, None, "# AGENTS.md instructions for /repo"
     )
     assert _decision(codex, b"{}") == ("excluded", "generated context or notification")
+    subagent = Candidate(
+        3, "Codex", "codex", "child", "message", None, None, "review the branch", "subagent"
+    )
+    assert _decision(subagent, b"{}") == ("excluded", "Codex subagent task")
+    probe = Candidate(4, "Codex", "codex", "probe", "message", None, None, "1+1", "exec")
+    assert _decision(probe, b"{}") == ("excluded", "automated Codex exec session")
+
+
+def test_codex_session_metadata_excludes_subagent_prompts(tmp_path):
+    session = "12345678-1234-1234-1234-123456789012"
+    home = tmp_path / "codex"
+    path = home / "sessions" / f"rollout-2026-09-21T00-00-00-{session}.jsonl"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(
+        _line(
+            {"type": "session_meta", "payload": {"id": session, "source": {"subagent": "review"}}}
+        )
+        + _line(
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "review the branch"}],
+                },
+            }
+        )
+    )
+    source_path = tmp_path / "capture.sqlite3"
+    store = Store(source_path)
+    Collector(store).scan_once([Source("codex", "Codex", home, "test")])
+    store.close()
+    output_path = tmp_path / "corpus.sqlite3"
+    derive(source_path, output_path)
+    with sqlite3.connect(output_path) as db:
+        assert db.execute("SELECT COUNT(*) FROM prompts").fetchone()[0] == 0
+        assert db.execute("SELECT decision,reason FROM occurrences").fetchall() == [
+            ("excluded", "Codex subagent task")
+        ]

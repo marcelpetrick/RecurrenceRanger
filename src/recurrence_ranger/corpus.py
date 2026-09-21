@@ -67,6 +67,7 @@ class Candidate:
     timestamp: str | None
     project: str | None
     text: str | None
+    session_origin: str | None = None
 
 
 def _seconds(value: str | None) -> float | None:
@@ -83,6 +84,10 @@ def _seconds(value: str | None) -> float | None:
 
 def _decision(candidate: Candidate, raw: bytes) -> tuple[str, str]:
     text = candidate.text
+    if candidate.session_origin == "subagent":
+        return "excluded", "Codex subagent task"
+    if candidate.session_origin == "exec":
+        return "excluded", "automated Codex exec session"
     if candidate.tool == "claude" and candidate.kind == "user":
         try:
             record = json.loads(raw)
@@ -125,6 +130,29 @@ def derive(source_path: Path, output_path: Path, watermark: int | None = None) -
             watermark = source.execute("SELECT COALESCE(MAX(id),0) FROM raw_records").fetchone()[0]
         if watermark < 0:
             raise ValueError("watermark must be nonnegative")
+        session_origins = {}
+        headers = source.execute(
+            """SELECT s.label,r.data FROM raw_records r
+               JOIN generations g ON g.id=r.generation_id
+               JOIN files f ON f.id=g.file_id JOIN sources s ON s.id=f.source_id
+               WHERE s.tool='codex' AND r.start_offset=0 AND r.id<=?""",
+            (watermark,),
+        )
+        for profile, raw in headers:
+            try:
+                record = json.loads(raw)
+            except (UnicodeError, json.JSONDecodeError):
+                continue
+            if record.get("type") != "session_meta":
+                continue
+            payload = record.get("payload")
+            if not isinstance(payload, dict) or not payload.get("id"):
+                continue
+            origin = payload.get("source")
+            if isinstance(origin, dict) and "subagent" in origin:
+                session_origins[(profile, str(payload["id"]))] = "subagent"
+            elif origin == "exec":
+                session_origins[(profile, str(payload["id"]))] = "exec"
         output_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         output = sqlite3.connect(output_path)
         try:
@@ -157,7 +185,10 @@ def derive(source_path: Path, output_path: Path, watermark: int | None = None) -
                 candidates = []
                 decisions = {}
                 for row in rows:
-                    candidate = Candidate(*row[:-1])
+                    candidate = Candidate(
+                        *row[:-1],
+                        session_origin=session_origins.get((row[1], row[3])),
+                    )
                     candidates.append(candidate)
                     decisions[candidate.record_id] = _decision(candidate, row[-1])
                 priority = {"user": 0, "message": 0, "user_message": 1, "history": 2}
