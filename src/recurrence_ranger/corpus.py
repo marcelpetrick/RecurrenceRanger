@@ -132,7 +132,9 @@ def derive(source_path: Path, output_path: Path, watermark: int | None = None) -
             output.execute("PRAGMA foreign_keys=ON")
             output.executescript(SCHEMA)
             with output:
-                # Classification is tied to prompt IDs and this exact watermark.
+                # Derived labels are tied to prompt IDs and this exact watermark.
+                output.execute("DROP TABLE IF EXISTS guideline_occurrences")
+                output.execute("DROP TABLE IF EXISTS extraction_reviews")
                 output.execute("DROP TABLE IF EXISTS relevance")
                 output.execute("DELETE FROM occurrences")
                 output.execute("DELETE FROM prompts")
