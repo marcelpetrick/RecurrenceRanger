@@ -36,6 +36,12 @@ User-authorship decisions can be revised later without discarding source data.
 Embedded content remains in raw records; external attachment references are
 recorded, with attachment copying a separate scope decision.
 
+Raw capture must not depend on successful normalization: retain unrecognized
+record types and malformed input for later reparsing. Preserve observed incomplete
+tails with their source offsets as pending fragments, without counting them as
+complete messages. Reconcile them when more bytes arrive; retain their incomplete
+status if the source disappears or is replaced.
+
 Continuous capture must support an initial backfill, incremental reads, safe
 restart, partial writes, file replacement/truncation, and duplicate locations.
 Commit records and their checkpoints together so crashes cannot silently skip
@@ -110,12 +116,16 @@ Deliverable: `SOURCE_INVENTORY.md` and a machine-readable source manifest.
 
 - Capture all in-scope conversation records before applying software-relevance
   filters. Store original records and normalized representations in SQLite.
-- Backfill retained history, then continuously ingest new files and appended
-  records. Provide one-shot catch-up and resumable continuous operation.
+- Start monitoring active sources while backfill runs. Interleave bounded
+  historical batches with new-file discovery and appended-record capture so a
+  large archive cannot starve live collection. Provide one-shot catch-up and
+  resumable continuous operation.
 - Track file identity, generations, offsets, parser versions, and ingestion
   status. Handle rotation/replacement and report collection failures visibly.
 - Verify restart behavior, transactional checkpoints, deduplication, and reading
   the database for later analysis while capture is active.
+- Report disk-full, database-lock, and permission failures without advancing the
+  affected checkpoint. Retry recoverable failures and show pending backlog.
 
 Deliverable: a populated reusable local database, working continuous collector,
 capture status/coverage report, and operational instructions. This is the first
@@ -124,8 +134,10 @@ analysis stages below in detail.
 
 ### 5. Later: derive a traceable user-input corpus from the database
 
-- Read source logs without changing them. Stream large files and report malformed
-  records and incomplete trailing lines rather than silently losing them.
+- Derive this corpus from the retained database, using a recorded ingestion
+  watermark and parser version so ongoing collection does not change the input
+  halfway through analysis. Reparse stored raw records when needed; do not rely
+  on the original log files still existing.
 - Preserve original text and provenance: tool/profile, file, line or byte offset,
   session, message ID when present, timestamp, and project.
 - Reconcile duplicate representations of one message, copied homes, resumed or
@@ -189,14 +201,23 @@ Deliverable: a ranked catalog with evidence, counts, scope, and conflicts.
 - All discovered in-scope retained records are stored, or failures and unsupported
   formats are explicitly accounted for, without a software-keyword filter.
 - New records are collected continuously within a documented target delay.
+- Historical backfill does not block live ingestion indefinitely; report separate
+  progress and lag for active capture and historical work.
 - Restarting or rescanning neither loses complete records nor creates duplicate
   physical ingestion records; source aliases retain their provenance.
 - Partial writes, truncation/replacement, malformed records, and unavailable
   sources have tested behavior and visible status.
+- Unknown schemas remain available as raw data; pending fragments are accounted
+  for separately. Storage failures do not advance checkpoints past uncaptured data.
 - SQLite can be queried for sessions, user messages, and original records, with
   traceable source locations; backup and restore instructions are documented.
 - Code, schema, checks, and documentation are committed locally; database contents
   and private exports remain outside version control.
+
+Capture completeness is bounded by what local logs retain and what the collector
+can observe. Neither approach can recover data deleted before it was read or
+changes made entirely while collection was unavailable. Report those limits and
+detected gaps rather than promising lossless capture under all circumstances.
 
 ## Eventual guideline-analysis completion criteria
 

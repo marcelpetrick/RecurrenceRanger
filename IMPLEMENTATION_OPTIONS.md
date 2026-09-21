@@ -30,6 +30,7 @@ The following is a proposed model, to validate against actual local schemas:
 | Messages and blocks | Source role/type, original text or structured content, message IDs and ordering |
 | Provenance links | Connect normalized records to every original occurrence |
 | Checkpoints | Last durably captured complete record for each file generation |
+| Pending fragments | Observed incomplete bytes and offsets, reconciled as writes complete |
 | Ingestion errors/runs | Failures, unsupported schemas, counters, parser version, backfill/live progress |
 
 Store malformed complete records too, with their parse errors. A raw-record digest
@@ -37,16 +38,26 @@ helps compare copies but must not collapse identical text typed in separate turn
 Distinguish physical ingestion identity from logical message identity. Keep raw
 data available for reparsing after schema or classification changes.
 
+Preserve unknown record types before normalization and account for pending tails
+separately from complete messages. Persist observed tail bytes without advancing
+the complete-record checkpoint; reconcile them on append or mark them incomplete
+if the file disappears or changes generation. Use an ingestion watermark and
+parser version to define repeatable later analysis inputs.
+
 Use a single database writer, transactions that include checkpoints, schema
 migrations, and an explicit concurrency strategy for later readers. Evaluate
 SQLite WAL mode during implementation. Provide a consistent database backup
 procedure and verify restore; copying an active database file alone is not the
 backup design. Exclude the database, sidecars, backups, and private exports from Git.
 
+On disk-full, lock, or permission errors, report the failure and backlog, preserve
+the last committed checkpoint, and retry where recoverable. Bound batches and
+memory use so large records and historical files do not stall all other sources.
+
 ## Option A: periodic incremental collector
 
-Run one long-lived process that repeatedly discovers sources and reads only new
-complete records from known files. Use a configurable polling interval, initially
+Run one long-lived process that repeatedly discovers sources and reads new bytes
+from known files, separating complete records from pending tails. Use a configurable polling interval, initially
 targeting roughly 5–15 seconds, then tune against measured corpus size and load.
 This is a proposed target, not a measured capture guarantee.
 
@@ -57,7 +68,8 @@ This is a proposed target, not a measured capture guarantee.
 3. Add resumable offsets, file-generation tracking, and independent normalization
    adapters for the observed Claude/Codex formats.
 4. Add a continuous polling loop, periodic source rediscovery, status reporting,
-   orderly shutdown, and explicit error handling.
+   orderly shutdown, and explicit error handling. Interleave historical batches
+   and active-file reads from startup; do not require backfill to finish first.
 5. Exercise interrupted writes, restarts, source changes, duplicates, and querying
    while collecting. Measure backfill time, steady-state disk activity, and lag.
 6. Document manual operation, backup/restore, and an optional user-service setup.
@@ -83,7 +95,9 @@ of every change. The database and parsers are the same as in Option A.
 1. Inventory sources and build the same transactional database, parser fixtures,
    and resumable one-shot backfill as Option A.
 2. Establish watches and buffer change notifications while backfill runs; reconcile
-   afterward so changes during startup are not missed.
+   afterward to catch retained changes during startup. Process active-file reads
+   between bounded historical batches rather than deferring them until backfill
+   ends. Queue overflow must schedule reconciliation and produce visible status.
 3. Add a bounded, coalescing queue that sends changed paths to one database writer.
    Retry incomplete trailing records after later writes.
 4. Handle new directories, moves, replacement, watcher overflow, source outages,
@@ -124,10 +138,19 @@ validate disk growth and reader/writer behavior on the actual corpus.
   duplicating physically ingested complete records.
 - Append records in fragments, rotate/truncate/replace files, remove and restore
   a source, and confirm explicit recoverable behavior.
+- Preserve unknown schemas and abandoned partial tails. Simulate disk-full,
+  locked-database, and permission failures and verify checkpoint safety.
+- Run live appends during a substantial backfill and verify neither workload
+  starves; report measured collection lag separately from source discovery lag.
 - Keep copied histories linked while preserving identical prompts from genuinely
   separate turns. Preserve injected context without calling it human authorship.
 - Query sessions, original records, and candidate user inputs during capture.
 - Verify a consistent backup can be restored and queried.
+
+Both options depend on source retention: a file deleted before collection, or
+changes wholly inside an outage, may be unrecoverable. Reconciliation can recover
+retained data, not reconstruct missing bytes. Report detected gaps and these
+limits in the capture status and inventory.
 
 ## Decisions and later work
 
