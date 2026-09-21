@@ -1,0 +1,181 @@
+# -----------------------------------------------------------------------------
+# Recurrence Ranger manual release
+#
+# Nothing is published that has not been verified: the requested version has to
+# agree with VERSION, pyproject.toml and the package, the complete local
+# pipeline has to pass, and the wheel has to install and run its command before
+# the GitHub Release is created.
+#
+# Run it from the Actions tab, or:
+#   gh workflow run manual-release.yml -f version=0.0.51 -f publish_release=true
+# -----------------------------------------------------------------------------
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without a leading v, for example 0.0.51"
+        required: true
+        type: string
+      publish_release:
+        description: "Create the GitHub tag and release after the pipeline passes"
+        required: true
+        default: false
+        type: boolean
+      draft:
+        description: "Create the GitHub Release as a draft"
+        required: true
+        default: true
+        type: boolean
+      prerelease:
+        description: "Mark the GitHub Release as a prerelease"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manual-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Verify and build the release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install the project and its pinned check tools
+        run: python -m pip install -e '.[dev]'
+
+      - name: Validate the release version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          PUBLISH_RELEASE: ${{ inputs.publish_release }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${REQUESTED_VERSION}" =~ ^0\.0\.[1-9][0-9]*$ ]]; then
+            echo "::error::Version ${REQUESTED_VERSION} is not a patch version of this history."
+            exit 1
+          fi
+          file_version="$(cat VERSION)"
+          package_version="$(python -c 'import recurrence_ranger; print(recurrence_ranger.__version__)')"
+          project_version="$(python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          echo "requested ${REQUESTED_VERSION}, VERSION ${file_version}, package ${package_version}, project ${project_version}"
+          for actual in "${file_version}" "${package_version}" "${project_version}"; do
+            if [[ "${actual}" != "${REQUESTED_VERSION}" ]]; then
+              echo "::error::Version ${actual} does not match the requested ${REQUESTED_VERSION}."
+              exit 1
+            fi
+          done
+          if [[ "${PUBLISH_RELEASE}" == "true" ]] \
+            && git rev-parse -q --verify "refs/tags/v${REQUESTED_VERSION}" >/dev/null; then
+            echo "::error::Tag v${REQUESTED_VERSION} already exists."
+            exit 1
+          fi
+
+      - name: Run the local pipeline
+        run: ./localpipeline.sh
+
+      - name: Build the wheel and the source distribution
+        run: python -m build
+
+      - name: Check that the built wheel installs and runs
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/release-check
+          /tmp/release-check/bin/pip install --quiet dist/*.whl
+          /tmp/release-check/bin/recurrence-ranger --help
+          /tmp/release-check/bin/recurrence-ranger --db /tmp/release-check/check.sqlite3 status
+
+      - name: Collect the release assets
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          cp dist/*.whl dist/*.tar.gz release-assets/
+          cp coverage.json "release-assets/recurrence-ranger-${VERSION}-coverage.json"
+
+      - name: Upload the release assets
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: release-assets
+          path: release-assets/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish the GitHub Release
+    needs: build
+    if: ${{ inputs.publish_release }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Download the release assets
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: release-assets
+          path: release-assets
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          DRAFT: ${{ inputs.draft }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION}"
+          flags=()
+          if [[ "${DRAFT}" == "true" ]]; then
+            flags+=(--draft)
+          fi
+          if [[ "${PRERELEASE}" == "true" ]]; then
+            flags+=(--prerelease)
+          fi
+          cat > release-notes.md <<EOF
+          Recurrence Ranger ${TAG}: private, resumable capture of local Claude and
+          Codex conversation records, plus the derivation stages that turn them into
+          an auditable prompt corpus. Conversation data stays on the machine that
+          collects it; this release contains code and documentation only.
+
+          Verified by \`./localpipeline.sh\` on this commit: pinned tools, ruff
+          formatting and lint, mypy static analysis, the full test suite, and the
+          coverage gate that requires more than 98% statement and branch coverage.
+          Every commit carries one patch version, checked across the whole history.
+
+          | Asset | Description |
+          | --- | --- |
+          | \`recurrence_ranger-${VERSION}-py3-none-any.whl\` | Installable Python wheel. |
+          | \`recurrence_ranger-${VERSION}.tar.gz\` | Python source distribution. |
+          | \`recurrence-ranger-${VERSION}-coverage.json\` | Measured coverage report. |
+          EOF
+          gh release create "${TAG}" \
+            "release-assets/recurrence_ranger-${VERSION}-py3-none-any.whl#Installable Python wheel" \
+            "release-assets/recurrence_ranger-${VERSION}.tar.gz#Python source distribution" \
+            "release-assets/recurrence-ranger-${VERSION}-coverage.json#Measured coverage report" \
+            --target "${GITHUB_SHA}" \
+            --title "Recurrence Ranger ${TAG}" \
+            --notes-file release-notes.md \
+            "${flags[@]}"
