@@ -63,6 +63,21 @@ Combined effect on a full analysis of the current corpus: derivation dropped fro
 5 s to about 1 s, and the remaining triage of 5,306 prompts from roughly 1 h 50 min to
 roughly 50 min, without changing any decision the pipeline records.
 
+## Later findings, from the dependency and branch reviews
+
+Reviewed after the analysis run, in the same style. Each fix is again its own commit with
+its own tests, and the gate was re-run on both supported Python versions.
+
+| # | Severity | Finding | Fix |
+| --- | --- | --- | --- |
+| 11 | Medium (supply chain) | Every Python dependency was pinned exactly, but the workflows referenced actions by release tag, and a tag can be moved to another commit. | Pin each action to the commit its release points at, with the version as a comment. |
+| 12 | Medium (correctness of a claim) | `requires-python = ">=3.11"` was never exercised: hosted CI only ran 3.14, so the supported floor was a hope. | Run the pipeline on 3.11 and 3.14, with one coverage artifact per version. The whole suite passes on 3.11.15. |
+| 13 | Medium (drift) | Exact pins never move by themselves, so an outdated pin was only noticed when somebody ran the update workflow by hand. | A weekly job compares every pin, including the build backend, against its latest stable release and fails when one is behind. It opens no pull request, because an update needs its own commit and patch version. |
+| 14 | Medium (reproducibility) | The gate preferred `.venv/bin/python` whenever it existed, with no override, so the floor version that CI now tests could not be reproduced locally — an attempt to do so silently re-ran the repository venv. | `PYTHON` selects the interpreter, like `COVERAGE_MINIMUM` selects the threshold. |
+| 15 | Medium (signal quality) | The drift check reported an unreachable index, a timeout and a yanked release exactly like a genuinely outdated pin, and failed the job for all of them. A check that goes red on an outage is a check people stop reading. | Warn for an unreadable release, fail only for a pin that is really behind. |
+| 16 | Low (coverage of the check) | The drift check read only the development extra, so the `setuptools` pin that decides how the released wheel is built was never compared. | Compare the build requirements too, through one shared parser. |
+| 17 | Low (input handling) | A requirement's name went into the index URL verbatim, so a future pin carrying an extra or a marker would have been queried as a project and reported as unreadable rather than as a malformed pin. | Require a bare project name and normalise it the way the index spells it. |
+
 ## Deliberately not done
 
 - **Larger batches.** Measured against the real corpus at four concurrent requests: five
