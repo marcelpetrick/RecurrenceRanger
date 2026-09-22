@@ -7,14 +7,13 @@ import urllib.request
 import check_latest
 
 
-def test_only_pins_behind_their_release_are_reported():
+def test_drift_and_unreadable_releases_are_reported_apart():
     pinned = {"coverage": "7.16.1", "mypy": "2.3.1", "ruff": "0.16.8"}
     latest = {"coverage": "7.16.1", "mypy": "2.4.0", "ruff": None}
-    assert check_latest.outdated(pinned, latest.get) == [
-        "mypy: pinned 2.3.1, latest 2.4.0",
-        "ruff: pinned 0.16.8, latest release unknown",
-    ]
-    assert check_latest.outdated(pinned, {**pinned}.get) == []
+    behind, unknown = check_latest.compare(pinned, latest.get)
+    assert behind == ["mypy: pinned 2.3.1, latest 2.4.0"]
+    assert unknown == ["ruff: pinned 0.16.8, latest release could not be read"]
+    assert check_latest.compare(pinned, {**pinned}.get) == ([], [])
 
 
 def test_the_newest_release_is_read_from_the_index(monkeypatch):
@@ -72,3 +71,16 @@ def test_current_pins_pass_and_drift_fails(tmp_path, monkeypatch, capsys):
 def test_an_unreadable_project_file_is_reported(tmp_path, capsys):
     assert check_latest.main(["--project", str(tmp_path / "missing.toml")]) == 1
     assert "cannot read pins" in capsys.readouterr().err
+
+
+def test_an_unreachable_index_warns_without_failing(tmp_path, monkeypatch, capsys):
+    """A PyPI outage says nothing about the pins, so it must not read as drift."""
+    project = tmp_path / "pyproject.toml"
+    project.write_text('[project.optional-dependencies]\ndev = ["ruff==0.16.8"]\n')
+    monkeypatch.setattr(check_latest, "pypi_latest", lambda name: None)
+    assert check_latest.main(["--project", str(project)]) == 0
+    captured = capsys.readouterr()
+    assert "warning, ruff: pinned 0.16.8, latest release could not be read" in captured.err
+    assert "one commit per change" not in captured.err
+    assert "no pin could be compared" in captured.err
+    assert captured.out == ""

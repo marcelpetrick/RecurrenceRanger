@@ -20,16 +20,22 @@ import tool_versions
 TIMEOUT_SECONDS = 30
 
 
-def outdated(pinned: dict[str, str], latest: Callable[[str], str | None]) -> list[str]:
-    """Report one line per pin that is not the newest stable release."""
-    behind = []
+def compare(
+    pinned: dict[str, str], latest: Callable[[str], str | None]
+) -> tuple[list[str], list[str]]:
+    """Return the pins that are behind, and the pins whose latest release could not be read.
+
+    The two are kept apart on purpose: an unreachable index says nothing about the pin, and a
+    check that fails for both teaches everyone to ignore it.
+    """
+    behind, unknown = [], []
     for name, pin in sorted(pinned.items()):
         newest = latest(name)
         if newest is None:
-            behind.append(f"{name}: pinned {pin}, latest release unknown")
+            unknown.append(f"{name}: pinned {pin}, latest release could not be read")
         elif newest != pin:
             behind.append(f"{name}: pinned {pin}, latest {newest}")
-    return behind
+    return behind, unknown
 
 
 def pypi_latest(name: str) -> str | None:
@@ -59,7 +65,9 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, KeyError, TypeError, ValueError) as error:
         print(f"check-latest: cannot read pins from {args.project}: {error}", file=sys.stderr)
         return 1
-    behind = outdated(pinned, pypi_latest)
+    behind, unknown = compare(pinned, pypi_latest)
+    for line in unknown:
+        print(f"check-latest: warning, {line}", file=sys.stderr)
     if behind:
         for line in behind:
             print(f"check-latest: {line}", file=sys.stderr)
@@ -68,7 +76,13 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    print("check-latest: " + ", ".join(f"{name}=={pin}" for name, pin in sorted(pinned.items())))
+    checked = sorted(set(pinned) - {line.split(":", 1)[0] for line in unknown})
+    if not checked:
+        print("check-latest: no pin could be compared", file=sys.stderr)
+        return 0
+    print(
+        "check-latest: " + ", ".join(f"{name}=={pinned[name]}" for name in checked) + " are current"
+    )
     return 0
 
 
