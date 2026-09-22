@@ -26,6 +26,32 @@ were derivation, which read stored record bytes it did not need, and the model s
 which left the GPU idle between requests. Neither was a hot loop in Python; both were
 waiting on data.
 
+## End-to-end run times
+
+Measured on 2026-09-22 at version 0.0.96 against the live history of about 2.5 GB. The
+fast stages were timed directly on private copies, which were deleted afterwards; the model
+stages use the rates in the table above, because repeating them costs two hours of GPU time.
+
+| Stage | Command | Time |
+| --- | --- | ---: |
+| First capture of all four profiles | `recurrence-ranger backfill` | 38.1 s wall, 29.0 s CPU, 88 MB peak memory, 42 cycles, 404,460 records |
+| Keeping capture current | `recurrence-ranger run` | under 1% of one core; new records captured within 5.7 s median |
+| Consistent online backup | `recurrence-ranger backup` | 4.9 s |
+| Prompt corpus from the backup | `recurrence_ranger.corpus` | 1.2 s warm, 5.6 s with a cold cache |
+| Relevance triage of 6,769 prompts | `recurrence_ranger.classify` | 47–63 min at 0.42–0.56 s per prompt |
+| Recall safety net | `recurrence_ranger.recall` | 0.07 s |
+| Theme extraction of 5,013 prompts | `recurrence_ranger.extract` | about 71 min at 0.85 s per prompt |
+| Report | `recurrence_ranger.report` | 0.07 s |
+| Evidence audit | `recurrence_ranger.evidence_audit` | 0.66 s |
+
+The backfill ran with the transcript files in the page cache, so a first run on a cold
+machine reads 2.5 GB from disk and takes longer. A complete analysis from nothing takes two
+to two and a quarter hours, and over 99% of it is local model time. The first real run took
+2 h 5 min for triage and 1 h 21 min for extraction by its recorded timestamps, because the
+fixes behind the current rates landed during it. The summary page and the documents are not
+a timed stage: they were written from the report and audit output, and no code generates
+them.
+
 ## Findings and what was done
 
 Ranked by impact. Every fix has its own commit and its own tests.
