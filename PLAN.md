@@ -59,6 +59,21 @@ Marcel's current ordered work request is:
      software development including its gaps and ten antitheses,
    - then push and publish a release.
 
+   Complete on 2026-09-22. All 7,882 human prompts carry a relevance label and all
+   5,013 eligible prompts a theme review, with no unparsable model answers. Both
+   methods rank finishing the whole task first and planning second. The deliverables
+   are [docs/GUIDELINES.md](docs/GUIDELINES.md), [docs/EVIDENCE.md](docs/EVIDENCE.md),
+   [docs/PERFORMANCE_REVIEW.md](docs/PERFORMANCE_REVIEW.md) and
+   [docs/agentic-view.html](docs/agentic-view.html).
+
+   The run itself exposed five defects, each fixed with tests in its own commit: an
+   unbounded answer schema that let the model answer a whole batch with nothing and
+   silently recorded 18% of prompts without themes; a dead endpoint that was recorded
+   as a decision; serial requests; a derivation that read stored bytes it never parsed;
+   and a re-derivation that discarded finished model work. The analysed corpus stays at
+   watermark 385404, so the sessions that produced these documents are captured but
+   outside the snapshot, and the seed categories cannot prove themselves.
+
 ## Local pipeline and coverage gate
 
 [localpipeline.sh](localpipeline.sh) is the single entry point for every code
