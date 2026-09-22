@@ -29,6 +29,15 @@ RECALL_CANDIDATES = """CREATE TABLE IF NOT EXISTS recall_candidates (
 
 MODEL_TABLES = (RELEVANCE, EXTRACTION_REVIEWS, GUIDELINE_OCCURRENCES)
 
+# Sessions spent building this analysis talk about the themes it measures, so every stage
+# that queues, counts or audits prompts leaves them out, and all of them must agree.
+OWN_PROJECTS = ("RecurrenceRanger", "20260921_MarcelsWishlistForSoftwareProjects")
+
+
+def outside_own_projects(column: str) -> str:
+    """Return the SQL condition that excludes prompts from this analysis's own projects."""
+    return " AND ".join(f"COALESCE({column},'') NOT LIKE '%{name}%'" for name in OWN_PROJECTS)
+
 
 def create(db: sqlite3.Connection, *statements: str) -> None:
     for statement in statements:

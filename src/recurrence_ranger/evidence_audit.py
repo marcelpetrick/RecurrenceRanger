@@ -8,6 +8,10 @@ import re
 import sqlite3
 from pathlib import Path
 
+from recurrence_ranger import derived
+
+OUTSIDE_OWN_PROJECTS = derived.outside_own_projects("project")
+
 PATTERNS = {
     "ATOMIC_COMMITS": r"\batomic\s+commits?\b|\bcommit\s+atomically\b",
     "CONVENTIONAL_COMMITS": r"\bconventional\s+commits?\b|\bconventional\s+commit\s+messages?\b",
@@ -59,10 +63,8 @@ def audit(path: Path) -> dict:
         }
         matches: dict[str, list[tuple[int, str, str, str | None]]] = {name: [] for name in PATTERNS}
         rows = db.execute(
-            """SELECT primary_record_id,profile,session,project,text FROM prompts
-               WHERE authorship='human' AND COALESCE(project,'') NOT LIKE '%RecurrenceRanger%'
-               AND COALESCE(project,'') NOT LIKE
-                   '%20260921_MarcelsWishlistForSoftwareProjects%'
+            f"""SELECT primary_record_id,profile,session,project,text FROM prompts
+               WHERE authorship='human' AND {OUTSIDE_OWN_PROJECTS}
                ORDER BY primary_record_id"""
         )
         for record_id, profile, session, project, text in rows:

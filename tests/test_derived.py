@@ -30,3 +30,22 @@ def test_relevance_keeps_one_row_per_prompt(tmp_path):
             assert "relevance.prompt_id" in str(error)
         else:
             raise AssertionError("a prompt must not carry two labels")
+
+
+def test_the_own_project_condition_excludes_both_projects_and_keeps_the_rest():
+    db = sqlite3.connect(":memory:")
+    db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY, project TEXT)")
+    db.executemany(
+        "INSERT INTO prompts VALUES (?,?)",
+        [
+            (1, "/home/user/repos/RecurrenceRanger"),
+            (2, "/home/user/20260921_MarcelsWishlistForSoftwareProjects/sub"),
+            (3, "/home/user/repos/Other"),
+            (4, None),
+        ],
+    )
+    condition = derived.outside_own_projects("p.project")
+    assert db.execute(f"SELECT p.id FROM prompts p WHERE {condition} ORDER BY p.id").fetchall() == [
+        (3,),
+        (4,),
+    ]

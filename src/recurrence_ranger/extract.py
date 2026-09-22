@@ -12,6 +12,8 @@ from pathlib import Path
 from recurrence_ranger import derived, localmodel
 from recurrence_ranger.store import utc_now
 
+OUTSIDE_OWN_PROJECTS = derived.outside_own_projects("p.project")
+
 EXTRACTOR_VERSION = 1
 THEMES = {
     "PLAN": "plan the work before implementing",
@@ -146,15 +148,13 @@ def extract(
         while True:
             wanted = batch_size * concurrency
             rows = db.execute(
-                """SELECT p.id,p.text FROM prompts p
+                f"""SELECT p.id,p.text FROM prompts p
                    JOIN relevance r ON r.prompt_id=p.id
                    LEFT JOIN recall_candidates c ON c.prompt_id=p.id
                    LEFT JOIN extraction_reviews x ON x.prompt_id=p.id
                    WHERE (r.label='software_instruction' OR c.prompt_id IS NOT NULL)
                    AND x.prompt_id IS NULL
-                   AND COALESCE(p.project,'') NOT LIKE '%RecurrenceRanger%'
-                   AND COALESCE(p.project,'') NOT LIKE
-                       '%20260921_MarcelsWishlistForSoftwareProjects%'
+                   AND {OUTSIDE_OWN_PROJECTS}
                    ORDER BY p.id LIMIT ?""",
                 (min(wanted, limit - total) if limit else wanted,),
             ).fetchall()
@@ -188,14 +188,12 @@ def extract(
                 "GROUP BY theme ORDER BY COUNT(*) DESC"
             ).fetchall(),
             "remaining": db.execute(
-                """SELECT COUNT(*) FROM prompts p JOIN relevance r ON r.prompt_id=p.id
+                f"""SELECT COUNT(*) FROM prompts p JOIN relevance r ON r.prompt_id=p.id
                    LEFT JOIN recall_candidates c ON c.prompt_id=p.id
                    LEFT JOIN extraction_reviews x ON x.prompt_id=p.id
                    WHERE (r.label='software_instruction' OR c.prompt_id IS NOT NULL)
                    AND x.prompt_id IS NULL
-                   AND COALESCE(p.project,'') NOT LIKE '%RecurrenceRanger%'
-                   AND COALESCE(p.project,'') NOT LIKE
-                       '%20260921_MarcelsWishlistForSoftwareProjects%'"""
+                   AND {OUTSIDE_OWN_PROJECTS}"""
             ).fetchone()[0],
         }
     finally:

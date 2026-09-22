@@ -10,6 +10,8 @@ from pathlib import Path
 
 from recurrence_ranger import derived
 
+OUTSIDE_OWN_PROJECTS = derived.outside_own_projects("p.project")
+
 RULE_VERSION = 1
 SOFTWARE_TERMS = re.compile(
     r"\b(?:ci|pipeline|github actions|readme|badges?|tests?|coverage|commits?|"
@@ -27,11 +29,9 @@ def flag(path: Path) -> dict:
     try:
         derived.create(db, derived.RECALL_CANDIDATES)
         rows = db.execute(
-            """SELECT p.id,p.text FROM prompts p JOIN relevance r ON r.prompt_id=p.id
+            f"""SELECT p.id,p.text FROM prompts p JOIN relevance r ON r.prompt_id=p.id
                WHERE p.authorship='human' AND r.label!='software_instruction'
-               AND COALESCE(p.project,'') NOT LIKE '%RecurrenceRanger%'
-               AND COALESCE(p.project,'') NOT LIKE
-                   '%20260921_MarcelsWishlistForSoftwareProjects%'"""
+               AND {OUTSIDE_OWN_PROJECTS}"""
         )
         found = []
         for row_id, text in rows:

@@ -7,6 +7,10 @@ import json
 import sqlite3
 from pathlib import Path
 
+from recurrence_ranger import derived
+
+OUTSIDE_OWN_PROJECTS = derived.outside_own_projects("p.project")
+
 
 def summarize(path: Path) -> dict:
     path = path.expanduser().resolve()
@@ -58,13 +62,11 @@ def summarize(path: Path) -> dict:
                     "profiles": row[4],
                 }
                 for row in db.execute(
-                    """SELECT g.theme,COUNT(*),
+                    f"""SELECT g.theme,COUNT(*),
                               COUNT(DISTINCT p.profile||':'||p.session),
                               COUNT(DISTINCT p.project),COUNT(DISTINCT p.profile)
                        FROM guideline_occurrences g JOIN prompts p ON p.id=g.prompt_id
-                       WHERE COALESCE(p.project,'') NOT LIKE '%RecurrenceRanger%'
-                       AND COALESCE(p.project,'') NOT LIKE
-                           '%20260921_MarcelsWishlistForSoftwareProjects%'
+                       WHERE {OUTSIDE_OWN_PROJECTS}
                        GROUP BY g.theme ORDER BY COUNT(*) DESC,g.theme"""
                 )
             ]
