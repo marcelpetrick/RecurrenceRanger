@@ -394,3 +394,23 @@ def test_a_corpus_without_extracted_themes_still_carries_its_labels(tmp_path):
         assert db.execute("SELECT label FROM relevance").fetchall() == [("software_other",)]
         assert db.execute("SELECT note FROM extraction_reviews").fetchall() == [("no themes",)]
         assert db.execute("SELECT COUNT(*) FROM guideline_occurrences").fetchone() == (0,)
+
+
+def test_a_failed_rederivation_keeps_the_earlier_model_decisions(tmp_path, monkeypatch):
+    source_path, _ = _capture_with(tmp_path, ["add tests"])
+    corpus_path = tmp_path / "corpus.sqlite3"
+    derive(source_path, corpus_path)
+    with sqlite3.connect(corpus_path) as db:
+        db.execute(derived.RELEVANCE)
+        db.execute("INSERT INTO relevance VALUES (1,'software_instruction','m',2,'earlier',0,NULL)")
+
+    def fail(*_args):
+        raise sqlite3.IntegrityError("interrupted")
+
+    monkeypatch.setattr("recurrence_ranger.corpus._carry", fail)
+    with pytest.raises(sqlite3.IntegrityError, match="interrupted"):
+        derive(source_path, corpus_path, carry_labels=True)
+    with sqlite3.connect(corpus_path) as db:
+        assert db.execute("SELECT prompt_id,label FROM relevance").fetchall() == [
+            (1, "software_instruction")
+        ]

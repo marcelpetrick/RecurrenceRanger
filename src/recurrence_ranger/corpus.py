@@ -238,6 +238,10 @@ def derive(
             previous = _previous_decisions(output) if carry_labels else {}
             output.executescript(SCHEMA)
             with output:
+                # sqlite3 opens its implicit transaction only at the first DELETE, so the
+                # drops below would commit on their own and a later failure would lose the
+                # model work. Begin explicitly so the whole replacement is one transaction.
+                output.execute("BEGIN")
                 # Derived labels are tied to prompt IDs and this exact watermark.
                 output.execute("DROP TABLE IF EXISTS guideline_occurrences")
                 output.execute("DROP TABLE IF EXISTS extraction_reviews")
