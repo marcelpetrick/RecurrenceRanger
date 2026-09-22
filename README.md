@@ -99,7 +99,14 @@ coverage gate and the version history:
 
 The gate fails unless overall statement and branch coverage is strictly above
 98%. `COVERAGE_MINIMUM` and `COVERAGE_REPORT` override the threshold and the
-report path; the report itself is not committed.
+report path, and `PYTHON` selects the interpreter, so the same gate can be run on
+the oldest supported version:
+
+```sh
+PYTHON=python3.11 ./localpipeline.sh
+```
+
+The coverage report itself is not committed.
 
 Three GitHub workflows mirror this locally run script:
 

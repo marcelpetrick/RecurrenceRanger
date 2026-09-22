@@ -6,10 +6,14 @@ set -eu
 COVERAGE_MINIMUM=${COVERAGE_MINIMUM:-98}
 COVERAGE_REPORT=${COVERAGE_REPORT:-coverage.json}
 
-if [ -x .venv/bin/python ]; then
-  PYTHON=.venv/bin/python
-else
-  PYTHON=python3
+# PYTHON selects the interpreter, so the gate can be run on the oldest supported
+# version as well, which is what hosted CI does.
+if [ -z "${PYTHON:-}" ]; then
+  if [ -x .venv/bin/python ]; then
+    PYTHON=.venv/bin/python
+  else
+    PYTHON=python3
+  fi
 fi
 
 echo "== pinned tools =="
