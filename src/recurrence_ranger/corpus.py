@@ -126,34 +126,35 @@ def _previous_decisions(output: sqlite3.Connection) -> dict[tuple[str, str, str]
     """Read the model decisions of an earlier derivation, keyed by what identifies a prompt.
 
     Prompt ids belong to one derivation, so decisions are carried by profile, session and
-    exact prompt text instead. Nothing is carried for a prompt whose text changed.
+    exact prompt text instead. Nothing is carried for a prompt whose text changed. The same
+    text can recur in one session as separate prompts, so every decision for a key is taken
+    from the earliest of them rather than mixed from several.
     """
     tables = {row[0] for row in output.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     if "prompts" not in tables or "relevance" not in tables:
         return {}
     carried: dict[tuple[str, str, str], dict] = {}
-    for profile, session, prompt_text, *decision in output.execute(
-        """SELECT p.profile,p.session,p.text,r.label,r.model,r.prompt_version,r.classified_at,
-                  r.truncated,r.note
-           FROM prompts p JOIN relevance r ON r.prompt_id=p.id"""
+    origin: dict[int, dict] = {}
+    for prompt_id, profile, session, prompt_text, *decision in output.execute(
+        """SELECT p.id,p.profile,p.session,p.text,r.label,r.model,r.prompt_version,
+                  r.classified_at,r.truncated,r.note
+           FROM prompts p JOIN relevance r ON r.prompt_id=p.id ORDER BY p.id"""
     ):
-        carried[(profile, session, prompt_text)] = {"relevance": tuple(decision)}
+        key = (profile, session, prompt_text)
+        if key not in carried:
+            carried[key] = origin[prompt_id] = {"relevance": tuple(decision)}
     if "extraction_reviews" not in tables:
         return carried
-    for profile, session, prompt_text, *review in output.execute(
-        """SELECT p.profile,p.session,p.text,x.model,x.extractor_version,x.reviewed_at,x.note
-           FROM prompts p JOIN extraction_reviews x ON x.prompt_id=p.id"""
+    for prompt_id, *review in output.execute(
+        "SELECT prompt_id,model,extractor_version,reviewed_at,note FROM extraction_reviews"
     ):
-        entry = carried.setdefault((profile, session, prompt_text), {})
-        entry["review"] = tuple(review)
+        if prompt_id in origin:
+            origin[prompt_id]["review"] = tuple(review)
     if "guideline_occurrences" not in tables:
         return carried
-    for profile, session, prompt_text, theme in output.execute(
-        """SELECT p.profile,p.session,p.text,g.theme
-           FROM prompts p JOIN guideline_occurrences g ON g.prompt_id=p.id"""
-    ):
-        entry = carried.setdefault((profile, session, prompt_text), {})
-        entry.setdefault("themes", []).append(theme)
+    for prompt_id, theme in output.execute("SELECT prompt_id,theme FROM guideline_occurrences"):
+        if prompt_id in origin:
+            origin[prompt_id].setdefault("themes", []).append(theme)
     return carried
 
 

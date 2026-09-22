@@ -414,3 +414,33 @@ def test_a_failed_rederivation_keeps_the_earlier_model_decisions(tmp_path, monke
         assert db.execute("SELECT prompt_id,label FROM relevance").fetchall() == [
             (1, "software_instruction")
         ]
+
+
+def test_a_prompt_repeated_in_one_session_carries_one_set_of_decisions(tmp_path):
+    source_path, _ = _capture_with(tmp_path, ["add tests", "add tests"])
+    corpus_path = tmp_path / "corpus.sqlite3"
+    derive(source_path, corpus_path)
+    with sqlite3.connect(corpus_path) as db:
+        for statement in derived.MODEL_TABLES:
+            db.execute(statement)
+        for prompt_id, label in ((1, "software_instruction"), (2, "uncertain")):
+            db.execute(
+                "INSERT INTO relevance VALUES (?,?,'m',2,'earlier',0,NULL)", (prompt_id, label)
+            )
+            db.execute(
+                "INSERT INTO extraction_reviews VALUES (?,'m',1,'earlier',NULL)", (prompt_id,)
+            )
+        # Both earlier prompts carry the same theme, which used to be inserted twice.
+        db.execute("INSERT INTO guideline_occurrences VALUES (1,'TESTS')")
+        db.execute("INSERT INTO guideline_occurrences VALUES (2,'TESTS')")
+        db.execute("INSERT INTO guideline_occurrences VALUES (2,'README')")
+
+    assert derive(source_path, corpus_path, carry_labels=True)["carried_decisions"] == 2
+    with sqlite3.connect(corpus_path) as db:
+        assert db.execute("SELECT label FROM relevance ORDER BY prompt_id").fetchall() == [
+            ("software_instruction",),
+            ("software_instruction",),
+        ]
+        assert db.execute(
+            "SELECT prompt_id,theme FROM guideline_occurrences ORDER BY prompt_id"
+        ).fetchall() == [(1, "TESTS"), (2, "TESTS")]
