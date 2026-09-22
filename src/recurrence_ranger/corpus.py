@@ -12,7 +12,7 @@ from typing import cast
 
 from recurrence_ranger import derived
 from recurrence_ranger.normalize import PARSER_VERSION
-from recurrence_ranger.store import utc_now
+from recurrence_ranger.store import connect_read_only, utc_now
 
 SCHEMA_VERSION = 1
 GENERATED_PREFIXES = (
@@ -202,7 +202,7 @@ def derive(
     output_path = output_path.expanduser().resolve()
     if source_path == output_path:
         raise ValueError("source and output paths must differ")
-    source = sqlite3.connect(f"file:{source_path}?mode=ro", uri=True)
+    source = connect_read_only(source_path)
     try:
         if watermark is None:
             watermark = source.execute("SELECT COALESCE(MAX(id),0) FROM raw_records").fetchone()[0]

@@ -4,7 +4,7 @@ import sqlite3
 import pytest
 
 from recurrence_ranger.sources import Source, conversation_files, discover, load_manifest
-from recurrence_ranger.store import Store
+from recurrence_ranger.store import Store, connect_read_only
 
 
 def test_discovery_keeps_explicit_missing_and_deduplicates_alias(tmp_path, monkeypatch):
@@ -154,3 +154,22 @@ def test_store_migrates_a_first_generation_database(tmp_path):
         assert {"file_aliases", "ingestion_runs"} <= tables
     finally:
         store.close()
+
+
+@pytest.mark.parametrize("name", ["a#b", "a?b", "a%20b", "a b"])
+def test_a_read_only_database_opens_the_named_file(tmp_path, name):
+    path = tmp_path / name / "db.sqlite3"
+    store = Store(path)
+    with store.db:
+        store.db.execute(
+            "INSERT INTO sources VALUES (?,?,?,?,?,?,?)",
+            ("claude:one", "claude", "One", "/one", "test", 1, "now"),
+        )
+    store.close()
+    db = connect_read_only(path)
+    try:
+        assert db.execute("SELECT label FROM sources").fetchall() == [("One",)]
+        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+            db.execute("DELETE FROM sources")
+    finally:
+        db.close()

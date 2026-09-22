@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import urllib.parse
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -11,6 +12,15 @@ SCHEMA_VERSION = 2
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def connect_read_only(path: Path) -> sqlite3.Connection:
+    """Open an existing database without write access.
+
+    The path goes into a URI, where '#', '?' and '%' have a meaning of their own; unescaped,
+    a path containing one of them silently opens a different file.
+    """
+    return sqlite3.connect(f"file:{urllib.parse.quote(str(path))}?mode=ro", uri=True)
 
 
 SCHEMA = """

@@ -5,10 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sqlite3
 from pathlib import Path
 
 from recurrence_ranger import derived
+from recurrence_ranger.store import connect_read_only
 
 OUTSIDE_OWN_PROJECTS = derived.outside_own_projects("project")
 
@@ -55,7 +55,7 @@ PATTERNS = {
 
 def audit(path: Path) -> dict:
     path = path.expanduser().resolve()
-    db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    db = connect_read_only(path)
     try:
         patterns = {
             name: re.compile(pattern, re.IGNORECASE | re.DOTALL)

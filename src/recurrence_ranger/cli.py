@@ -18,7 +18,7 @@ from types import FrameType
 from recurrence_ranger.capture import Collector
 from recurrence_ranger.normalize import PARSER_VERSION
 from recurrence_ranger.sources import conversation_files, discover
-from recurrence_ranger.store import Store, utc_now
+from recurrence_ranger.store import Store, connect_read_only, utc_now
 
 DEFAULT_DB = Path("~/.local/share/recurrence-ranger/conversations.sqlite3")
 
@@ -192,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(_inventory(args.manifest), indent=2))
             return 0
         if args.command == "restore-check":
-            connection = sqlite3.connect(f"file:{args.source.expanduser()}?mode=ro", uri=True)
+            connection = connect_read_only(args.source.expanduser())
             try:
                 integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
                 count = connection.execute("SELECT COUNT(*) FROM raw_records").fetchone()[0]
