@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "recurrence-ranger"
-version = "0.0.75"
+version = "0.0.76"
 description = "Private local capture of Claude and Codex conversations"
 readme = "README.md"
 requires-python = ">=3.11"

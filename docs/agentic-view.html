@@ -165,8 +165,8 @@
   <p class="eyebrow">Derived from local agent transcripts · 2026-09-22</p>
   <h1>Marcel's Agent Doctrine</h1>
   <p class="thesis">Across five months and 202 project paths, one instruction outranks every
-  other by a factor of two and a half: <em>finish the whole thing</em>. The rest of the doctrine
-  exists to make that safe.</p>
+  other under both measurements: <em>finish the whole thing</em>. The rest of the doctrine exists
+  to make that safe.</p>
   <div class="provenance">
     <span>7,882 human prompts</span><span>710 sessions</span><span>202 project paths</span>
     <span>4 tool profiles</span><span>2026-04-10 → 2026-09-21</span><span>385,404 raw records</span>
@@ -212,7 +212,7 @@
 
 <section>
   <p class="eyebrow">The doctrine</p>
-  <h2>Seven principles, ranked by how often he has to say them</h2>
+  <h2>Nine principles, ranked by how often he has to say them</h2>
   <p class="lede">Counts are matching prompts / sessions / project paths / tool profiles, measured over
   every human prompt with this project excluded.</p>
   <ol class="doctrine">
@@ -271,6 +271,24 @@
     </li>
     <li>
       <div>
+        <h3>Report the work so a human can read it</h3>
+        <p>A large share of instructions are about the <em>communication</em> of the work rather than
+        the work: a crisp summary, a description of what changed, a comment back on the ticket, an
+        overview for the next meeting. Short, factual, structured — and never a wall of text.</p>
+        <div class="counts"><span>362 prompts</span><span>220 sessions</span><span>96 projects</span><span>4 profiles</span></div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h3>Stay inside the scope you were given</h3>
+        <p>The counterweight to finishing everything: do the batch, and nothing beyond it. Usually
+        said while correcting an agent that widened the scope on its own.</p>
+        <p class="quote">“only this file” · “leave the rest alone” · “keep the text, only fix the tags”</p>
+        <div class="counts"><span>244 prompts</span><span>159 sessions</span><span>88 projects</span><span>4 profiles</span></div>
+      </div>
+    </li>
+    <li>
+      <div>
         <h3>Ship it, and leave a trace</h3>
         <p>Work ends in a push and a public release, and it is linked to the ticket or merge request that
         asked for it, with the reviewer assigned, labels current and the outcome commented back.</p>
@@ -317,6 +335,46 @@
     <span><span class="swatch faded"></span>Category expected before the data was read</span>
     <span>s = sessions · p = project paths</span>
   </div>
+
+  <h3 style="font-family:var(--display);font-size:19px;margin:38px 0 4px">The second measurement,
+  taken independently</h3>
+  <p>A local model tagged atomic expectations in all 5,013 instruction prompts, with no unparsable
+  answers. It never saw the phrase list. The top two themes come out the same, which is the
+  strongest claim this corpus supports.</p>
+  <div class="bars">
+    <div class="bar-row"><span class="bar-name">COMPLETE</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><span class="bar-value">860 · 316s · 128p</span></div>
+    <div class="bar-row"><span class="bar-name">PLAN</span><div class="bar-track"><div class="bar-fill" style="width:70.7%"></div></div><span class="bar-value">608 · 287s · 120p</span></div>
+    <div class="bar-row"><span class="bar-name">COMMIT</span><div class="bar-track"><div class="bar-fill" style="width:69%"></div></div><span class="bar-value">593 · 287s · 128p</span></div>
+    <div class="bar-row"><span class="bar-name">VERIFY</span><div class="bar-track"><div class="bar-fill" style="width:53.3%"></div></div><span class="bar-value">458 · 257s · 103p</span></div>
+    <div class="bar-row"><span class="bar-name">ATOMIC_COMMITS</span><div class="bar-track"><div class="bar-fill" style="width:51.9%"></div></div><span class="bar-value">446 · 246s · 106p</span></div>
+    <div class="bar-row"><span class="bar-name">DOCS</span><div class="bar-track"><div class="bar-fill" style="width:45.3%"></div></div><span class="bar-value">390 · 225s · 110p</span></div>
+    <div class="bar-row"><span class="bar-name">REVIEW_CODE</span><div class="bar-track"><div class="bar-fill" style="width:44.4%"></div></div><span class="bar-value">382 · 237s · 98p</span></div>
+    <div class="bar-row"><span class="bar-name">COMMUNICATE</span><div class="bar-track"><div class="bar-fill" style="width:42.1%"></div></div><span class="bar-value">362 · 220s · 96p</span></div>
+    <div class="bar-row"><span class="bar-name">CONVENTIONAL_COMMITS</span><div class="bar-track"><div class="bar-fill" style="width:32.8%"></div></div><span class="bar-value">282 · 190s · 93p</span></div>
+    <div class="bar-row"><span class="bar-name">FIX_FINDINGS</span><div class="bar-track"><div class="bar-fill" style="width:32.4%"></div></div><span class="bar-value">279 · 177s · 75p</span></div>
+    <div class="bar-row"><span class="bar-name">TESTS</span><div class="bar-track"><div class="bar-fill" style="width:32.4%"></div></div><span class="bar-value">279 · 169s · 83p</span></div>
+    <div class="bar-row"><span class="bar-name">SCOPE</span><div class="bar-track"><div class="bar-fill" style="width:28.4%"></div></div><span class="bar-value">244 · 159s · 88p</span></div>
+    <div class="bar-row"><span class="bar-name">CI_LOCAL</span><div class="bar-track"><div class="bar-fill" style="width:27.4%"></div></div><span class="bar-value">236 · 161s · 77p</span></div>
+    <div class="bar-row"><span class="bar-name">DEPENDENCIES</span><div class="bar-track"><div class="bar-fill" style="width:27.3%"></div></div><span class="bar-value">235 · 151s · 77p</span></div>
+    <div class="bar-row"><span class="bar-name">REVIEW_ARCH</span><div class="bar-track"><div class="bar-fill" style="width:21.5%"></div></div><span class="bar-value">185 · 145s · 74p</span></div>
+    <div class="bar-row"><span class="bar-name">CI_HOSTED</span><div class="bar-track"><div class="bar-fill" style="width:17.4%"></div></div><span class="bar-value">150 · 96s · 47p</span></div>
+    <div class="bar-row"><span class="bar-name">README</span><div class="bar-track"><div class="bar-fill" style="width:17.2%"></div></div><span class="bar-value">148 · 101s · 64p</span></div>
+    <div class="bar-row"><span class="bar-name">REPRODUCIBLE</span><div class="bar-track"><div class="bar-fill" style="width:13.6%"></div></div><span class="bar-value">117 · 91s · 56p</span></div>
+    <div class="bar-row"><span class="bar-name">COVERAGE</span><div class="bar-track"><div class="bar-fill" style="width:12%"></div></div><span class="bar-value">103 · 66s · 32p</span></div>
+    <div class="bar-row"><span class="bar-name">UX</span><div class="bar-track"><div class="bar-fill" style="width:11.5%"></div></div><span class="bar-value">99 · 75s · 49p</span></div>
+    <div class="bar-row"><span class="bar-name">BADGES</span><div class="bar-track"><div class="bar-fill" style="width:10.9%"></div></div><span class="bar-value">94 · 71s · 48p</span></div>
+    <div class="bar-row"><span class="bar-name">PERFORMANCE</span><div class="bar-track"><div class="bar-fill" style="width:10%"></div></div><span class="bar-value">86 · 69s · 50p</span></div>
+    <div class="bar-row"><span class="bar-name">PIN_VERSIONS</span><div class="bar-track"><div class="bar-fill" style="width:10%"></div></div><span class="bar-value">86 · 68s · 40p</span></div>
+    <div class="bar-row"><span class="bar-name">ROBUST</span><div class="bar-track"><div class="bar-fill" style="width:9.7%"></div></div><span class="bar-value">83 · 69s · 46p</span></div>
+    <div class="bar-row"><span class="bar-name">DELEGATE</span><div class="bar-track"><div class="bar-fill" style="width:7.3%"></div></div><span class="bar-value">63 · 45s · 32p</span></div>
+    <div class="bar-row"><span class="bar-name">C4</span><div class="bar-track"><div class="bar-fill" style="width:6.3%"></div></div><span class="bar-value">54 · 42s · 30p</span></div>
+    <div class="bar-row"><span class="bar-name">PRIVACY</span><div class="bar-track"><div class="bar-fill" style="width:4.1%"></div></div><span class="bar-value">35 · 30s · 24p</span></div>
+  </div>
+  <p style="margin-top:18px">Two themes are far larger here than in the phrase audit, and the model
+  is right about both. <strong>COMMUNICATE</strong> (362) — how the work gets reported, as a crisp
+  summary, a merge request description, a ticket comment — has no fixed phrasing to search for.
+  <strong>SCOPE</strong> (244 against 10 matched phrases) is almost always expressed in context:
+  <span class="quote">only this file</span>, <span class="quote">keep the text, only fix the tags</span>.</p>
 </section>
 
 <section>
@@ -476,14 +534,19 @@
   2.4 GB) and frozen at a watermark. From 44,592 candidate user messages, tool results, injected context,
   subagent and automated sessions were excluded, and near-simultaneous duplicates of the same prompt were
   reconciled, leaving 7,882 likely human prompts; 126 remain explicitly uncertain. A local model
-  (<span class="quote">qwen3.5:4b</span> on loopback) labelled relevance; a deterministic pass then searched
-  every prompt for explicit phrasings, twelve from the original hypothesis and thirteen taken from the
-  corpus itself.</p>
+  (<span class="quote">qwen3.5:4b</span> on loopback) labelled all 7,882 prompts for relevance and tagged
+  atomic expectations in all 5,013 instruction prompts, with no unparsable answers; independently, a
+  deterministic pass searched every prompt for explicit phrasings, twelve from the original hypothesis and
+  thirteen taken from the corpus itself. The two rankings are reported side by side above.</p>
   <p>Three caveats travel with every number here. A phrase match is not a guideline — it can be a question,
   a quote or a correction. A missing match is not an absent preference, because wording varies and the
   corpus is typed fast. And the ranking measures what had to be <em>said</em>, which correlates with what
   matters but also with what agents kept getting wrong. No prompt text is published: the corpus never
   leaves the machine that collected it, and this page reports counts, not content.</p>
+  <p>One measured weakness is worth naming: the model's <em>uncertain</em> bucket (751 prompts)
+  absorbs short follow-ups like <span class="quote">until all done</span> — which are instances of the
+  strongest theme, stated without context. Model labels alone therefore under-count completion, which is
+  why the phrase audit runs over every prompt regardless of its label.</p>
   <p>The counter-analysis is not derived from the corpus — it is the argument from the other side, written
   against it. Absence in a prompt log is weak evidence about a person's real practice, and some of these
   gaps may be covered by habits that were never typed to an agent.</p>
