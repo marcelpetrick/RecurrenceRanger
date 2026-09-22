@@ -2,7 +2,7 @@
 
 Observed on 2026-09-21, before ingestion. Sizes and modification dates are
 filesystem observations, not proof of complete conversation coverage. The
-machine-readable discovery specification is [sources.json](sources.json).
+machine-readable discovery specification is [sources.json](../../sources.json).
 
 | Profile | Home | JSONL files | Bytes | File modification dates (UTC) |
 | --- | --- | ---: | ---: | --- |

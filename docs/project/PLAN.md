@@ -11,7 +11,7 @@ profiles. All stages have since run to completion: every human prompt carries a
 relevance label, all 5,013 instruction and recall-flagged prompts carry a theme
 review, and the resulting guidelines, their evidence and the performance review
 are committed under `docs/`. The corpus and its labels stay local; re-running is
-described in [docs/EVIDENCE.md](docs/EVIDENCE.md).
+described in [docs/EVIDENCE.md](../EVIDENCE.md).
 
 Marcel's current ordered work request is:
 
@@ -65,9 +65,9 @@ Marcel's current ordered work request is:
    Complete on 2026-09-22. All 7,882 human prompts carry a relevance label and all
    5,013 eligible prompts a theme review, with no unparsable model answers. Both
    methods rank finishing the whole task first and planning second. The deliverables
-   are [docs/GUIDELINES.md](docs/GUIDELINES.md), [docs/EVIDENCE.md](docs/EVIDENCE.md),
-   [docs/PERFORMANCE_REVIEW.md](docs/PERFORMANCE_REVIEW.md) and
-   [docs/agentic-view.html](docs/agentic-view.html).
+   are [docs/GUIDELINES.md](../GUIDELINES.md), [docs/EVIDENCE.md](../EVIDENCE.md),
+   [docs/PERFORMANCE_REVIEW.md](../PERFORMANCE_REVIEW.md) and
+   [docs/agentic-view.html](../agentic-view.html).
 
    The run itself exposed five defects, each fixed with tests in its own commit: an
    unbounded answer schema that let the model answer a whole batch with nothing and
@@ -79,7 +79,7 @@ Marcel's current ordered work request is:
 
 ## Local pipeline and coverage gate
 
-[localpipeline.sh](localpipeline.sh) is the single entry point for every code
+[localpipeline.sh](../../localpipeline.sh) is the single entry point for every code
 change, and `.github/workflows/local-pipeline.yml` runs the same script on
 GitHub. Measured on 2026-09-22 with Python 3.14.7:
 
@@ -292,7 +292,7 @@ Deliverable: structured guideline occurrences, each linked to its source prompt.
 ### 7. Consolidate recurring preferences
 
 Done: `recurrence_ranger.report` and `evidence_audit`; the ranked catalog is
-[docs/GUIDELINES.md](docs/GUIDELINES.md).
+[docs/GUIDELINES.md](../GUIDELINES.md).
 
 - Group semantically equivalent instructions without erasing useful distinctions
   such as hosted CI versus local CI, tests versus coverage, or README versus
@@ -310,8 +310,8 @@ Deliverable: a ranked catalog with evidence, counts, scope, and conflicts.
 
 ### 8. Validate coverage and write the reusable guidance
 
-Done: [docs/EVIDENCE.md](docs/EVIDENCE.md) records the counts, the hand-checked
-label quality and the limits; [docs/agentic-view.html](docs/agentic-view.html)
+Done: [docs/EVIDENCE.md](../EVIDENCE.md) records the counts, the hand-checked
+label quality and the limits; [docs/agentic-view.html](../agentic-view.html)
 summarises the result and argues against it.
 
 - Test extraction against representative schemas, mixed content blocks,
@@ -321,8 +321,8 @@ summarises the result and argues against it.
 - Reconcile discovered files, processed records, retained prompts, exclusions,
   and failures. Separate measured coverage from unavailable history and remaining
   uncertainty; do not claim perfect semantic recall.
-- Produce [docs/GUIDELINES.md](docs/GUIDELINES.md) as a concise reusable set of agent
-  instructions, and [docs/EVIDENCE.md](docs/EVIDENCE.md) as the supporting catalog with
+- Produce [docs/GUIDELINES.md](../GUIDELINES.md) as a concise reusable set of agent
+  instructions, and [docs/EVIDENCE.md](../EVIDENCE.md) as the supporting catalog with
   counts and source references rather than private excerpts.
 - Document how to reproduce the extraction and update it with new sessions.
 

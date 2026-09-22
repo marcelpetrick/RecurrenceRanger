@@ -27,7 +27,7 @@ All stages are implemented and have been run over the real local history:
 385,404 captured records, 7,882 likely human prompts, every prompt classified
 and every instruction prompt reviewed for the expectations it states. The
 results are in [docs/](docs/); the plan and its history are in
-[PLAN.md](PLAN.md).
+[PLAN.md](docs/project/PLAN.md).
 
 Authorship stays explicit rather than assumed: captured message rows keep the
 source role and are marked `unclassified`, because a transport `user` role alone
@@ -50,7 +50,7 @@ Its contents, SQLite sidecars, backups, and exports must never be committed or
 pushed. Diagnostic commands print paths, counts, and errors, not prompt text.
 The raw data may still contain secrets; protect backups to the same standard.
 Measured capture coverage and its limits are in
-[CAPTURE_ACCEPTANCE.md](CAPTURE_ACCEPTANCE.md).
+[CAPTURE_ACCEPTANCE.md](docs/project/CAPTURE_ACCEPTANCE.md).
 
 ## Setup and first run
 
@@ -155,15 +155,16 @@ The collector detects replacement and truncation, and samples the committed
 prefix for common in-place rewrites. A rewrite that leaves file size, mtime,
 and sampled bytes unchanged may escape detection. It cannot reconstruct a
 record deleted before the collector observed it or data lost during an outage.
-`SOURCE_INVENTORY.md` gives the initial observed coverage. Codex's
-`thread_history_1.sqlite` is a derived projection whose rows are not yet
-ingested separately; rollout JSONL is the primary Codex source. The final
-capture report should name any missing profiles, failed files, and gaps.
+[SOURCE_INVENTORY.md](docs/project/SOURCE_INVENTORY.md) gives the initial
+observed coverage. Codex's `thread_history_1.sqlite` is a derived projection
+whose rows are not yet ingested separately; rollout JSONL is the primary Codex
+source. The final capture report should name any missing profiles, failed
+files, and gaps.
 
 ## Development
 
 Implementation details and work packages are in
-[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md). The code uses Python's
+[IMPLEMENTATION_PLAN.md](docs/project/IMPLEMENTATION_PLAN.md). The code uses Python's
 standard library at runtime. Test fixtures are synthetic; no real transcript
 belongs in this repository. Commit implementation steps locally with
 conventional messages. Do not push private data.
