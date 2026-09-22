@@ -1,14 +1,17 @@
 # Extract Marcel's software-project guidelines from local AI history
 
-Date: 2026-09-21, pipeline section added 2026-09-22
+Date: 2026-09-21, analysis completed and documented 2026-09-22
 
 ## Current priority and stop point
 
 The capture milestone is implemented and accepted in `CAPTURE_ACCEPTANCE.md`.
 The fixed private corpus is derived from raw-record watermark 385404. It has
 7,882 likely human prompts and 126 uncertain-authorship prompts across the four
-profiles. Relevance triage is resumable and incomplete; extraction, source review,
-and the final evidence-backed guidelines remain future work.
+profiles. All stages have since run to completion: every human prompt carries a
+relevance label, all 5,013 instruction and recall-flagged prompts carry a theme
+review, and the resulting guidelines, their evidence and the performance review
+are committed under `docs/`. The corpus and its labels stay local; re-running is
+described in [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
 Marcel's current ordered work request is:
 
@@ -246,7 +249,10 @@ capture status/coverage report, and operational instructions. This is the first
 implementation milestone. Review its results with Marcel before planning the
 analysis stages below in detail.
 
-### 5. Later: derive a traceable user-input corpus from the database
+### 5. Derive a traceable user-input corpus from the database
+
+Done: `recurrence_ranger.corpus`, with `--carry-labels` to keep model decisions
+across a re-derivation.
 
 - Derive this corpus from the retained database, using a recorded ingestion
   watermark and parser version so ongoing collection does not change the input
@@ -265,7 +271,10 @@ analysis stages below in detail.
 Deliverable: a normalized local corpus, exclusion/error ledger, and extraction
 statistics with stable IDs linking all later results to source records.
 
-### 6. Later: extract individual software guidelines
+### 6. Extract individual software guidelines
+
+Done: `recurrence_ranger.classify`, `recall` and `extract`; 4,560 instruction
+prompts and 471 recall candidates reviewed.
 
 - Examine every extracted human input for software relevance, using nearby
   conversation context when a short follow-up depends on it. Do not make keyword
@@ -280,7 +289,10 @@ statistics with stable IDs linking all later results to source records.
 
 Deliverable: structured guideline occurrences, each linked to its source prompt.
 
-### 7. Later: consolidate recurring preferences
+### 7. Consolidate recurring preferences
+
+Done: `recurrence_ranger.report` and `evidence_audit`; the ranked catalog is
+[docs/GUIDELINES.md](docs/GUIDELINES.md).
 
 - Group semantically equivalent instructions without erasing useful distinctions
   such as hosted CI versus local CI, tests versus coverage, or README versus
@@ -296,7 +308,11 @@ Deliverable: structured guideline occurrences, each linked to its source prompt.
 
 Deliverable: a ranked catalog with evidence, counts, scope, and conflicts.
 
-### 8. Later: validate coverage and write the reusable guidance
+### 8. Validate coverage and write the reusable guidance
+
+Done: [docs/EVIDENCE.md](docs/EVIDENCE.md) records the counts, the hand-checked
+label quality and the limits; [docs/agentic-view.html](docs/agentic-view.html)
+summarises the result and argues against it.
 
 - Test extraction against representative schemas, mixed content blocks,
   duplicates, injected context, malformed records, and multiple rules per prompt.
@@ -305,8 +321,9 @@ Deliverable: a ranked catalog with evidence, counts, scope, and conflicts.
 - Reconcile discovered files, processed records, retained prompts, exclusions,
   and failures. Separate measured coverage from unavailable history and remaining
   uncertainty; do not claim perfect semantic recall.
-- Produce `GUIDELINES.md` as a concise reusable set of agent instructions, and
-  `EVIDENCE.md` as the supporting catalog with safe excerpts and source references.
+- Produce [docs/GUIDELINES.md](docs/GUIDELINES.md) as a concise reusable set of agent
+  instructions, and [docs/EVIDENCE.md](docs/EVIDENCE.md) as the supporting catalog with
+  counts and source references rather than private excerpts.
 - Document how to reproduce the extraction and update it with new sessions.
 
 ## Capture milestone completion criteria
