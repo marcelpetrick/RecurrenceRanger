@@ -103,8 +103,9 @@ report path; the report itself is not committed.
 
 Three GitHub workflows mirror this locally run script:
 
-- **Local Pipeline** runs `./localpipeline.sh` on every push and pull request
-  and keeps the coverage report as an artifact.
+- **Local Pipeline** runs `./localpipeline.sh` on every push and pull request,
+  on Python 3.11 and 3.14 so the supported floor stays checked, and keeps each
+  coverage report as an artifact.
 - **Quality** runs the pinned tool check, ruff formatting and lint, and mypy
   for fast feedback without the test suite.
 - **Manual Release** is started by hand for a chosen version. It only publishes
