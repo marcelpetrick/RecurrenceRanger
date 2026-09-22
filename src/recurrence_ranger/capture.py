@@ -98,16 +98,15 @@ class Collector:
 
     def _file_row(self, source: Source, path: Path) -> tuple[int, Generation | None]:
         db = self.store.db
+        resolved = str(path.resolve())
         db.execute(
             """
           INSERT INTO files(source_id,path,last_seen) VALUES (?,?,?)
           ON CONFLICT(path) DO UPDATE SET last_seen=excluded.last_seen,missing=0
         """,
-            (source.id, str(path.resolve()), utc_now()),
+            (source.id, resolved, utc_now()),
         )
-        file_id = db.execute(
-            "SELECT id FROM files WHERE path=?", (str(path.resolve()),)
-        ).fetchone()[0]
+        file_id = db.execute("SELECT id FROM files WHERE path=?", (resolved,)).fetchone()[0]
         db.execute("INSERT OR IGNORE INTO file_aliases VALUES (?,?)", (file_id, str(path)))
         generation = db.execute(
             """
@@ -165,6 +164,10 @@ class Collector:
         """Capture one file up to a byte budget, finishing each complete line."""
         result = ScanResult(files=1)
         budget = budget or self.file_budget
+        # One scan is one transaction, so its records share one capture time, and a session
+        # row needs to be written only once per scan rather than once per message.
+        now = utc_now()
+        sessions: dict[str, tuple[int, bool]] = {}
         try:
             with path.open("rb") as handle:
                 stat = os.fstat(handle.fileno())
@@ -200,7 +203,7 @@ class Collector:
                                 start_offset=excluded.start_offset,data=excluded.data,
                                 status='pending',observed_at=excluded.observed_at
                             """,
-                                (generation_id, start, line, "pending", utc_now()),
+                                (generation_id, start, line, "pending", now),
                             )
                             result.pending += 1
                             break
@@ -220,7 +223,7 @@ class Collector:
                                 end,
                                 line,
                                 digest,
-                                utc_now(),
+                                now,
                                 status,
                                 error,
                                 PARSER_VERSION,
@@ -236,7 +239,7 @@ class Collector:
                             if metadata:
                                 self._session_project(source, *metadata)
                         if cursor.rowcount and message:
-                            self._message(record_id, source, message)
+                            self._message(record_id, source, message, now, sessions)
                         if cursor.rowcount:
                             result.records += 1
                         result.bytes += len(line)
@@ -264,7 +267,7 @@ class Collector:
                         "UPDATE errors SET resolved_at=? WHERE "
                         "source_id=? AND path=? AND stage='capture' "
                         "AND resolved_at IS NULL",
-                        (utc_now(), source.id, str(path)),
+                        (now, source.id, str(path)),
                     )
         except (OSError, ValueError, sqlite3.Error) as error:
             result.errors += 1
@@ -275,20 +278,35 @@ class Collector:
                 pass
         return result
 
-    def _message(self, record_id: int, source: Source, message: Message) -> None:
+    def _message(
+        self,
+        record_id: int,
+        source: Source,
+        message: Message,
+        now: str,
+        sessions: dict[str, tuple[int, bool]],
+    ) -> None:
         db = self.store.db
-        db.execute(
-            """
-          INSERT INTO sessions(source_id,source_session_id,project,first_seen)
-          VALUES (?,?,?,?) ON CONFLICT(source_id,source_session_id) DO UPDATE SET
-          project=COALESCE(sessions.project,excluded.project)
-        """,
-            (source.id, message.session, message.project, utc_now()),
-        )
-        session_id = db.execute(
-            "SELECT id FROM sessions WHERE source_id=? AND source_session_id=?",
-            (source.id, message.session),
-        ).fetchone()[0]
+        cached = sessions.get(message.session)
+        # The upsert only ever fills a missing project, so it can be skipped once the
+        # session has one or when this message brings none.
+        if cached and (cached[1] or message.project is None):
+            session_id = cached[0]
+        else:
+            db.execute(
+                """
+              INSERT INTO sessions(source_id,source_session_id,project,first_seen)
+              VALUES (?,?,?,?) ON CONFLICT(source_id,source_session_id) DO UPDATE SET
+              project=COALESCE(sessions.project,excluded.project)
+            """,
+                (source.id, message.session, message.project, now),
+            )
+            session_id, has_project = db.execute(
+                "SELECT id,project IS NOT NULL FROM sessions "
+                "WHERE source_id=? AND source_session_id=?",
+                (source.id, message.session),
+            ).fetchone()
+            sessions[message.session] = (session_id, bool(has_project))
         db.execute(
             """
           INSERT INTO messages(record_id,session_id,source_message_id,role,kind,
@@ -328,7 +346,7 @@ class Collector:
     def scan_once(self, sources: list[Source], *, max_files: int = 32) -> ScanResult:
         """Interleave changed active files with older backfill files."""
         result = ScanResult()
-        paths: list[tuple[Source, Path, os.stat_result]] = []
+        paths: list[tuple[Source, Path, str, os.stat_result]] = []
         for source in sources:
             with self.store.db:
                 self._source(source)
@@ -336,11 +354,11 @@ class Collector:
                 continue
             for path in conversation_files(source):
                 try:
-                    paths.append((source, path, path.stat()))
+                    paths.append((source, path, str(path.resolve()), path.stat()))
                 except OSError as error:
                     self._error(source, path, "stat", str(error))
                     result.errors += 1
-        observed = {str(path.resolve()) for _, path, _ in paths}
+        observed = {resolved for _, _, resolved, _ in paths}
         available = {source.id for source in sources if source.exists}
         with self.store.db:
             for file_id, source_id, path, generation_id, missing in self.store.db.execute(
@@ -361,8 +379,8 @@ class Collector:
         """).fetchall()
         known = {row[0]: row[1:] for row in rows}
         needed = []
-        for source, path, stat in paths:
-            state = known.get(str(path.resolve()))
+        for source, path, resolved, stat in paths:
+            state = known.get(resolved)
             if not state or state[4] or state[1] != stat.st_size or state[2] != stat.st_mtime_ns:
                 needed.append((source, path, stat))
             elif state[0] < stat.st_size and state[3] != "pending":

@@ -6,6 +6,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 
 
@@ -17,8 +18,11 @@ class Source:
     origin: str
     aliases: tuple[str, ...] = ()
 
-    @property
+    @cached_property
     def id(self) -> str:
+        # Resolving the home costs a system call per path component, and capture asks for
+        # the id for every stored record. Discovery builds new sources each cycle, so a
+        # moved home is still noticed.
         return f"{self.tool}:{self.home.resolve()}"
 
     @property

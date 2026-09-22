@@ -294,3 +294,23 @@ def test_a_record_nested_too_deeply_does_not_stop_capture(tmp_path):
         "SELECT parse_status FROM raw_records ORDER BY start_offset"
     ).fetchall() == [("malformed",), ("parsed",)]
     assert store.db.execute("SELECT text FROM messages").fetchall() == [("after it",)]
+
+
+def test_a_session_gains_its_project_from_a_later_message_in_the_same_scan(tmp_path):
+    source, path, store, collector = setup(tmp_path)
+    first = claude_message("no directory yet", "one")
+    del first["cwd"]
+    third = claude_message("again without", "three")
+    del third["cwd"]
+    path.write_bytes(line(first) + line(claude_message("with directory", "two")) + line(third))
+    assert collector.scan_file(source, path).records == 3
+    assert store.db.execute("SELECT source_session_id,project FROM sessions").fetchall() == [
+        ("session", "/project")
+    ]
+    assert store.db.execute(
+        "SELECT COUNT(DISTINCT session_id),COUNT(*) FROM messages"
+    ).fetchone() == (1, 3)
+    assert (
+        len({captured for (captured,) in store.db.execute("SELECT captured_at FROM raw_records")})
+        == 1
+    )
