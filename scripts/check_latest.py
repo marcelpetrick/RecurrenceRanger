@@ -61,7 +61,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--project", type=Path, default=Path("pyproject.toml"))
     args = parser.parse_args(argv)
     try:
-        pinned = tool_versions.pinned(tomllib.loads(args.project.read_text(encoding="utf-8")))
+        project = tomllib.loads(args.project.read_text(encoding="utf-8"))
+        # The build backend decides how the released wheel is produced, so its pin is
+        # compared too, even though the pipeline does not require it to be installed.
+        pinned = tool_versions.pinned(project) | tool_versions.build_requirements(project)
     except (OSError, KeyError, TypeError, ValueError) as error:
         print(f"check-latest: cannot read pins from {args.project}: {error}", file=sys.stderr)
         return 1

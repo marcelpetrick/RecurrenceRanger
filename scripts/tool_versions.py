@@ -5,20 +5,30 @@ from __future__ import annotations
 import argparse
 import sys
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 
-def pinned(project: dict) -> dict[str, str]:
-    """Return the exactly pinned development dependencies of a parsed pyproject."""
+def exact(requirements: Iterable[str], what: str) -> dict[str, str]:
+    """Read requirements that must all name one project and one exact version."""
     found = {}
-    for requirement in project["project"]["optional-dependencies"]["dev"]:
+    for requirement in requirements:
         name, separator, pin = requirement.partition("==")
         if not separator or not pin.strip():
-            raise ValueError(f"development dependency is not pinned: {requirement}")
+            raise ValueError(f"{what} is not pinned: {requirement}")
         found[name.strip()] = pin.strip()
     return found
+
+
+def pinned(project: dict) -> dict[str, str]:
+    """Return the exactly pinned development dependencies of a parsed pyproject."""
+    return exact(project["project"]["optional-dependencies"]["dev"], "development dependency")
+
+
+def build_requirements(project: dict) -> dict[str, str]:
+    """Return the exactly pinned build backend requirements of a parsed pyproject."""
+    return exact(project["build-system"]["requires"], "build requirement")
 
 
 def mismatches(expected: dict[str, str], installed: Callable[[str], str | None]) -> list[str]:

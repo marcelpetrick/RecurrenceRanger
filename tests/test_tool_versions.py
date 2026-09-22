@@ -1,5 +1,6 @@
 from importlib.metadata import version
 
+import pytest
 import tool_versions
 
 
@@ -55,3 +56,10 @@ def test_an_unreadable_project_file_fails(tmp_path, capsys):
     empty.write_text("[project]\nname = 'x'\n")
     assert tool_versions.main(["--project", str(empty)]) == 1
     assert "cannot read pins" in capsys.readouterr().err
+
+
+def test_build_requirements_are_read_and_must_be_pinned():
+    project = {"build-system": {"requires": ["setuptools==84.0.0"]}}
+    assert tool_versions.build_requirements(project) == {"setuptools": "84.0.0"}
+    with pytest.raises(ValueError, match="build requirement is not pinned: setuptools"):
+        tool_versions.build_requirements({"build-system": {"requires": ["setuptools>=75"]}})

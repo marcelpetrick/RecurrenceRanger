@@ -54,12 +54,17 @@ def test_an_unreachable_index_a_yanked_release_and_junk_are_all_unknown(monkeypa
 
 def test_current_pins_pass_and_drift_fails(tmp_path, monkeypatch, capsys):
     project = tmp_path / "pyproject.toml"
-    project.write_text('[project.optional-dependencies]\ndev = ["ruff==0.16.8", "mypy==2.3.1"]\n')
-    monkeypatch.setattr(
-        check_latest, "pypi_latest", lambda name: {"ruff": "0.16.8"}.get(name, "2.3.1")
+    project.write_text(
+        '[build-system]\nrequires = ["setuptools==84.0.0"]\n'
+        '[project.optional-dependencies]\ndev = ["ruff==0.16.8", "mypy==2.3.1"]\n'
     )
+    current = {"ruff": "0.16.8", "mypy": "2.3.1", "setuptools": "84.0.0"}
+    monkeypatch.setattr(check_latest, "pypi_latest", current.get)
     assert check_latest.main(["--project", str(project)]) == 0
-    assert "ruff==0.16.8" in capsys.readouterr().out
+    printed = capsys.readouterr().out
+    assert "ruff==0.16.8" in printed
+    # The build backend decides how the wheel is produced, so its pin is checked too.
+    assert "setuptools==84.0.0" in printed
 
     monkeypatch.setattr(check_latest, "pypi_latest", lambda name: "9.9.9")
     assert check_latest.main(["--project", str(project)]) == 1
@@ -76,7 +81,10 @@ def test_an_unreadable_project_file_is_reported(tmp_path, capsys):
 def test_an_unreachable_index_warns_without_failing(tmp_path, monkeypatch, capsys):
     """A PyPI outage says nothing about the pins, so it must not read as drift."""
     project = tmp_path / "pyproject.toml"
-    project.write_text('[project.optional-dependencies]\ndev = ["ruff==0.16.8"]\n')
+    project.write_text(
+        '[build-system]\nrequires = ["setuptools==84.0.0"]\n'
+        '[project.optional-dependencies]\ndev = ["ruff==0.16.8"]\n'
+    )
     monkeypatch.setattr(check_latest, "pypi_latest", lambda name: None)
     assert check_latest.main(["--project", str(project)]) == 0
     captured = capsys.readouterr()
