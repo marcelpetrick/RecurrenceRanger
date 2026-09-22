@@ -42,7 +42,8 @@ def pypi_latest(name: str) -> str | None:
     """Return the newest release of a project, or None when it cannot be read."""
     try:
         with urllib.request.urlopen(
-            f"https://pypi.org/pypi/{name}/json", timeout=TIMEOUT_SECONDS
+            f"https://pypi.org/pypi/{tool_versions.normalise(name)}/json",
+            timeout=TIMEOUT_SECONDS,
         ) as response:
             release = json.load(response)
     except (urllib.error.URLError, TimeoutError, ConnectionError, json.JSONDecodeError):

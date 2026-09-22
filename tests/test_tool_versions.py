@@ -63,3 +63,21 @@ def test_build_requirements_are_read_and_must_be_pinned():
     assert tool_versions.build_requirements(project) == {"setuptools": "84.0.0"}
     with pytest.raises(ValueError, match="build requirement is not pinned: setuptools"):
         tool_versions.build_requirements({"build-system": {"requires": ["setuptools>=75"]}})
+
+
+def test_a_requirement_that_is_not_one_bare_project_is_rejected():
+    """An extra or a marker would otherwise be sent to the index as a project name."""
+    for requirement in (
+        "pytest[xdist]==9.1.1",
+        "ruff ; python_version>'3.10'==0.16.8",
+        "==1.0",
+        "coverage[toml]==7.16.1",
+    ):
+        with pytest.raises(ValueError, match="does not name one project"):
+            tool_versions.exact([requirement], "development dependency")
+    assert tool_versions.exact(["types-requests==2.0"], "dev") == {"types-requests": "2.0"}
+
+
+def test_names_are_normalised_the_way_the_index_spells_them():
+    assert tool_versions.normalise("Recurrence_Ranger.Tool") == "recurrence-ranger-tool"
+    assert tool_versions.normalise("ruff") == "ruff"

@@ -92,3 +92,16 @@ def test_an_unreachable_index_warns_without_failing(tmp_path, monkeypatch, capsy
     assert "one commit per change" not in captured.err
     assert "no pin could be compared" in captured.err
     assert captured.out == ""
+
+
+def test_the_index_is_queried_with_the_normalised_name(monkeypatch):
+    asked = []
+
+    def fake_urlopen(url, timeout=None):
+        asked.append(url)
+        body = {"info": {"version": "2.0"}, "releases": {"2.0": [{"yanked": False}]}}
+        return contextlib.closing(io.BytesIO(json.dumps(body).encode()))
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    assert check_latest.pypi_latest("Types_Requests") == "2.0"
+    assert asked == ["https://pypi.org/pypi/types-requests/json"]

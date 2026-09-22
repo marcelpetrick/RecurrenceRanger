@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import tomllib
 from collections.abc import Callable, Iterable
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+
+# A bare project name: no extras, no environment marker, no version range left over.
+PROJECT_NAME = re.compile(r"[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?")
+
+
+def normalise(name: str) -> str:
+    """Return the name as the package index spells it, per PEP 503."""
+    return re.sub(r"[-_.]+", "-", name).lower()
 
 
 def exact(requirements: Iterable[str], what: str) -> dict[str, str]:
@@ -17,7 +26,10 @@ def exact(requirements: Iterable[str], what: str) -> dict[str, str]:
         name, separator, pin = requirement.partition("==")
         if not separator or not pin.strip():
             raise ValueError(f"{what} is not pinned: {requirement}")
-        found[name.strip()] = pin.strip()
+        name = name.strip()
+        if not PROJECT_NAME.fullmatch(name):
+            raise ValueError(f"{what} does not name one project: {requirement}")
+        found[name] = pin.strip()
     return found
 
 
