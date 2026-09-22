@@ -34,6 +34,76 @@ source role and are marked `unclassified`, because a transport `user` role alone
 does not prove that a human typed the text. The derivation decides authorship
 from record flags and content, and keeps 126 prompts as uncertain.
 
+## Results at a glance
+
+The summary page [docs/agentic-view.html](docs/agentic-view.html) presents the
+findings, the ranked themes and ten antitheses. GitHub shows it as source; open
+the file in a browser or through
+[htmlpreview](https://htmlpreview.github.io/?https://github.com/marcelpetrick/RecurrenceRanger/blob/master/docs/agentic-view.html).
+
+[![Key findings: 58% of prompts change software, "get all done" is the most repeated instruction](docs/images/key-findings.png)](docs/agentic-view.html)
+
+[![Every theme ranked by matching prompts, sessions and project paths](docs/images/theme-ranking.png)](docs/agentic-view.html)
+
+## How it works
+
+```mermaid
+flowchart TD
+    logs["Claude and Codex JSONL logs<br/>four local profiles"]
+    raw[("conversations.sqlite3<br/>original bytes, checkpoints")]
+    snap[("backup at a fixed<br/>raw-record watermark")]
+    corpus[("corpus.sqlite3<br/>likely human prompts")]
+    labels["relevance label<br/>per prompt"]
+    recall["recall candidates<br/>keyword safety net"]
+    themes["theme tags<br/>per instruction prompt"]
+    audit["phrase counts<br/>deterministic search"]
+    docs["docs/: guidelines, evidence,<br/>summary page"]
+
+    logs -->|"capture: backfill, then poll every 10 s"| raw
+    raw -->|backup| snap
+    snap -->|"corpus: authorship, duplicates"| corpus
+    corpus -->|"classify: local model"| labels
+    labels -->|recall| recall
+    labels -->|"extract: local model"| themes
+    recall --> themes
+    corpus -->|evidence_audit| audit
+    themes -->|report| docs
+    audit --> docs
+```
+
+Capture runs continuously and never changes the analysis input: every later
+stage reads a backup frozen at one raw-record watermark, so a result can be
+reproduced from it. The two model stages use a local Ollama model on loopback
+only, and both resume where they stopped. The documents in `docs/`, including
+the summary page, were written from the `report` and `evidence_audit` output;
+no stage generates them.
+
+### How long a run takes
+
+Measured on the real history (about 2.5 GB, 400,000 raw records, 7,882 likely
+human prompts) on a 20-core laptop with one GPU holding `qwen3.5:4b`:
+
+| Stage | Command | Time |
+| --- | --- | ---: |
+| First capture of all four profiles | `recurrence-ranger backfill` | 38 s for 404,460 records, file cache warm |
+| Keeping capture current | `recurrence-ranger run` (systemd service) | under 1% of one core, new records within 6 s median |
+| Consistent online backup | `recurrence-ranger backup` | 5 s |
+| Prompt corpus from the backup | `recurrence_ranger.corpus` | about 1 s |
+| Relevance triage of 6,769 prompts | `recurrence_ranger.classify` | 47–63 min (0.42–0.56 s per prompt) |
+| Recall safety net | `recurrence_ranger.recall` | under 1 s |
+| Theme extraction of 5,013 prompts | `recurrence_ranger.extract` | about 71 min (0.85 s per prompt) |
+| Report and evidence audit | `recurrence_ranger.report`, `recurrence_ranger.evidence_audit` | under 1 s |
+| Summary page | open `docs/agentic-view.html` | instant, static HTML |
+
+A complete analysis from nothing therefore takes two to two and a quarter
+hours, almost all of it local model time. The other 1,113 prompts are exact
+short inputs such as `/exit` or `continue`, labelled without the model. With
+`corpus --carry-labels`, a later run sends only new or changed prompts to the
+model. The model rates come from
+[PERFORMANCE_REVIEW.md](docs/PERFORMANCE_REVIEW.md). The first real run took
+longer, 2 h 5 min for triage and 1 h 21 min for extraction by the recorded
+timestamps, because the fixes behind those rates landed during it.
+
 ## Sources and privacy
 
 The checked-in [sources.json](sources.json) names the four requested profiles:
@@ -164,9 +234,9 @@ files, and gaps.
 ## Development
 
 Implementation details and work packages are in
-[IMPLEMENTATION_PLAN.md](docs/project/IMPLEMENTATION_PLAN.md). The code uses Python's
-standard library at runtime. Test fixtures are synthetic; no real transcript
-belongs in this repository. Commit implementation steps locally with
+[IMPLEMENTATION_PLAN.md](docs/project/IMPLEMENTATION_PLAN.md). The code uses
+Python's standard library at runtime. Test fixtures are synthetic; no real
+transcript belongs in this repository. Commit implementation steps locally with
 conventional messages. Do not push private data.
 
 Every commit advances the patch version by one, beginning at `0.0.1` in the
