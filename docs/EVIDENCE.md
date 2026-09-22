@@ -90,12 +90,68 @@ near the bottom.
 
 ## Stage 4: model-tagged guideline occurrences
 
-The extraction stage tags each instruction prompt with zero or more atomic project
-expectations, over 5,013 eligible prompts (instruction-labelled plus recall candidates,
-excluding this project and the wishlist project). It runs against the same local model and
-was still in progress when this document was written; its counts are added to
-[GUIDELINES.md](GUIDELINES.md) once the pass finishes. The tiers above rest on the
-deterministic audit and the triage counts, both of which are complete.
+All **5,013** eligible prompts were reviewed — instruction-labelled plus recall candidates,
+excluding this project and the wishlist project — with **zero unparsable answers**. Each
+prompt received zero or more atomic expectations.
+
+| Theme | Prompts | Sessions | Project paths | Profiles |
+| --- | ---: | ---: | ---: | ---: |
+| COMPLETE | 860 | 316 | 128 | 4 |
+| PLAN | 608 | 287 | 120 | 4 |
+| COMMIT | 593 | 287 | 128 | 4 |
+| VERIFY | 458 | 257 | 103 | 4 |
+| ATOMIC_COMMITS | 446 | 246 | 106 | 4 |
+| DOCS | 390 | 225 | 110 | 4 |
+| REVIEW_CODE | 382 | 237 | 98 | 4 |
+| COMMUNICATE | 362 | 220 | 96 | 4 |
+| OTHER | 319 | 210 | 102 | 4 |
+| CONVENTIONAL_COMMITS | 282 | 190 | 93 | 4 |
+| FIX_FINDINGS | 279 | 177 | 75 | 4 |
+| TESTS | 279 | 169 | 83 | 4 |
+| SCOPE | 244 | 159 | 88 | 4 |
+| CI_LOCAL | 236 | 161 | 77 | 4 |
+| DEPENDENCIES | 235 | 151 | 77 | 4 |
+| REVIEW_ARCH | 185 | 145 | 74 | 4 |
+| CI_HOSTED | 150 | 96 | 47 | 4 |
+| README | 148 | 101 | 64 | 4 |
+| REPRODUCIBLE | 117 | 91 | 56 | 3 |
+| COVERAGE | 103 | 66 | 32 | 4 |
+| UX | 99 | 75 | 49 | 4 |
+| BADGES | 94 | 71 | 48 | 4 |
+| PERFORMANCE | 86 | 69 | 50 | 4 |
+| PIN_VERSIONS | 86 | 68 | 40 | 4 |
+| ROBUST | 83 | 69 | 46 | 3 |
+| DELEGATE | 63 | 45 | 32 | 4 |
+| C4 | 54 | 42 | 30 | 3 |
+| PRIVACY | 35 | 30 | 24 | 2 |
+
+### Where the two methods agree, and where they do not
+
+The top two themes are the same under both methods, which is the strongest statement this
+corpus supports: finishing the whole task and planning first are not artefacts of one
+measurement. Commit discipline, verification and review follow in both.
+
+Two themes are much larger under the model than under phrase matching, and the model is
+right about them:
+
+- **COMMUNICATE** (362) has no phrase pattern at all. Instructions about *how the work is
+  reported* — a crisp summary, a merge request description, a ticket comment, an overview
+  for a meeting — are phrased differently every time.
+- **SCOPE** (244 versus 10 for the `MINIMAL_CHANGE` phrases): scope-limiting intent is
+  usually expressed in context (*only this file*, *keep the text*), not with a keyword.
+
+Two themes are larger under the model than under phrase matching for a duller reason:
+`BADGES` (94 versus 29) and `C4` (54 versus 18) catch prompts where the subject is
+mentioned in passing. Their rank stays low under both methods.
+
+### Label quality, checked by hand
+
+A sample of labels was read directly. `nonsoftware` and `software_other` are mostly right.
+The instructive error is in `uncertain` (751 prompts): it absorbs short follow-ups such as
+*until all done* or *continue, get it done* — which are exactly the strongest theme in the
+corpus, stated without context. Model labels alone would therefore **under-count
+completion**, which is why the deterministic audit runs over every prompt regardless of its
+label, and why the recall pass exists.
 
 ## What these numbers do not prove
 
@@ -127,5 +183,7 @@ deterministic audit and the triage counts, both of which are complete.
 ```
 
 Timings and the cost of each stage are in [PERFORMANCE_REVIEW.md](PERFORMANCE_REVIEW.md).
+The full run over this corpus took about 50 minutes of triage and 70 minutes of extraction
+on one local GPU.
 Re-deriving the corpus resets model labels, because prompt identity depends on the
 watermark.
