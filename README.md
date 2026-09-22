@@ -3,6 +3,7 @@
 [![Local Pipeline](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/local-pipeline.yml/badge.svg?branch=master)](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/local-pipeline.yml)
 [![Quality](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/quality.yml/badge.svg?branch=master)](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/quality.yml)
 [![Manual Release](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/manual-release.yml/badge.svg)](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/manual-release.yml)
+[![Dependency Drift](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/dependency-drift.yml/badge.svg)](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/dependency-drift.yml)
 [![Latest Release](https://img.shields.io/github/v/release/marcelpetrick/RecurrenceRanger?sort=semver)](https://github.com/marcelpetrick/RecurrenceRanger/releases/latest)
 [![License: GPL v3 or later](https://img.shields.io/badge/license-GPLv3%20or%20later-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab.svg)](https://www.python.org/)
@@ -11,9 +12,10 @@
 [![Linted with ruff](https://img.shields.io/badge/ruff-linted-d7ff64.svg)](https://docs.astral.sh/ruff/)
 
 Recurrence Ranger keeps a private, reusable SQLite copy of local Claude and
-Codex conversation records. It captures retained history and polls for new
-records while backfill is still running. The database preserves original JSONL
-bytes and exposes a best-effort message view for later guideline analysis.
+Codex conversation records, derives an auditable corpus of the prompts a human
+actually typed, and turns that corpus into an evidence-backed set of recurring
+software-project guidelines. Capture preserves the original JSONL bytes; every
+later stage is reproducible from a recorded watermark.
 
 **Author: Marcel Petrick <mail@marcelpetrick.it>**
 
@@ -21,10 +23,16 @@ bytes and exposes a best-effort message view for later guideline analysis.
 
 **Note: project is generated with AI.**
 
-The first milestone is **capture**. Message rows retain the source role and
-are marked `unclassified` for human authorship; a transport `user` role alone
-does not prove that Marcel typed the text. Semantic guideline extraction is
-planned in [PLAN.md](PLAN.md).
+All stages are implemented and have been run over the real local history:
+385,404 captured records, 7,882 likely human prompts, every prompt classified
+and every instruction prompt reviewed for the expectations it states. The
+results are in [docs/](docs/); the plan and its history are in
+[PLAN.md](PLAN.md).
+
+Authorship stays explicit rather than assumed: captured message rows keep the
+source role and are marked `unclassified`, because a transport `user` role alone
+does not prove that a human typed the text. The derivation decides authorship
+from record flags and content, and keeps 126 prompts as uncertain.
 
 ## Sources and privacy
 
