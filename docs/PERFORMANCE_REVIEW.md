@@ -120,6 +120,24 @@ without it, and the gate passed after every commit.
 | 23 | Low (resource lifetime) | The backup target was opened in a `with` block, which commits but never closes a sqlite3 connection. | Close it explicitly. |
 | 24 | Low (documentation) | The plan named a `ci.yml` workflow that does not exist, next to outdated coverage numbers. | Name `local-pipeline.yml` and state the current measurement. |
 
+## Second profiling round
+
+Profiled on 2026-09-23 with cProfile against the live history, after the end-to-end
+measurement above. The model stages are still over 99% of a full run, so the question
+was which of their requests are unnecessary, and which work capture repeats per record.
+Baselines and results were measured with the same harness, one after the other.
+
+| # | Severity | Finding | Fix | Measured effect |
+| --- | --- | --- | --- | --- |
+| 25 | Medium (performance and consistency) | Triage and extraction sent every prompt to the model, although it sees only the text. 6,769 triaged prompts hold 6,420 distinct texts and 5,013 extracted prompts 4,818. The repeats cost requests and could be answered differently: 71 of the 178 repeated texts carried conflicting labels. | Ask once per distinct text, apply the answer to every prompt with that text, and reuse an earlier error-free answer from the same model and prompt or extractor version. | Re-triaging the 527 prompts with a repeated text with the real model: 137 s before, 68 s after; conflicting texts 68 before, 0 after. On a full run this saves 349 triage and 195 extraction requests, about 6 minutes. |
+| 26 | Low (performance) | Capture resolved the source home for every stored record (about 270,000 path resolutions in a backfill), took a timestamp per record, upserted the session row per message, and resolved every observed path twice per polling cycle. | Compute the source id once, take one capture time per scan, which is one transaction, write the session row only until it has its project, and resolve each path once per cycle. | Backfill of the live history: 53.7 s before, 46.6 s after, 44.7 s to 39.8 s CPU. All 411,287 records common to both runs stored identically, including messages, sessions and projects. |
+
+What remains in capture is the work it has to do: decoding each JSON line, the SQLite
+writes and one commit per scanned file, and hashing each line for its digest. An idle
+polling cycle over about 1,150 files costs 50–70 ms. `status` answers in 0.3 s and `verify`
+in 1–2 s on a warm 2.5 GB database; a cold `verify` took 23 s because `integrity_check`
+reads every page from disk, and that read is its purpose.
+
 ## Deliberately not done
 
 - **Larger batches.** Measured against the real corpus at four concurrent requests: five
@@ -128,5 +146,10 @@ without it, and the gate passed after every commit.
   stays the default and throughput was bought with concurrency instead.
 - **Running several triage processes.** Two writers on one SQLite corpus would race for the
   same unlabelled rows. Concurrency inside one process avoids that entirely.
+- **A faster digest.** BLAKE2b hashes faster than BLAKE2s on 64-bit machines, but switching
+  would mix two digest formats in one database for a few seconds per backfill.
+- **Writing the source rows less often.** Each polling cycle refreshes `last_seen` for the four
+  sources, one small commit every ten seconds. Skipping it would save little and make the
+  timestamp mean something else.
 - **Micro-optimising the JSON parsing** that dominates derivation. After finding 4, the whole
   derivation costs about a second; anything further would trade clarity for noise.

@@ -85,21 +85,21 @@ human prompts) on a 20-core laptop with one GPU holding `qwen3.5:4b`:
 
 | Stage | Command | Time |
 | --- | --- | ---: |
-| First capture of all four profiles | `recurrence-ranger backfill` | 38 s for 404,460 records, file cache warm |
+| First capture of all four profiles | `recurrence-ranger backfill` | 35 s for 412,255 records, file cache warm |
 | Keeping capture current | `recurrence-ranger run` (systemd service) | under 1% of one core, new records within 6 s median |
 | Consistent online backup | `recurrence-ranger backup` | 5 s |
 | Prompt corpus from the backup | `recurrence_ranger.corpus` | about 1 s |
-| Relevance triage of 6,769 prompts | `recurrence_ranger.classify` | 47–63 min (0.42–0.56 s per prompt) |
+| Relevance triage of 6,769 prompts (6,420 distinct texts) | `recurrence_ranger.classify` | 45–60 min (0.42–0.56 s per text) |
 | Recall safety net | `recurrence_ranger.recall` | under 1 s |
-| Theme extraction of 5,013 prompts | `recurrence_ranger.extract` | about 71 min (0.85 s per prompt) |
+| Theme extraction of 5,013 prompts (4,818 distinct texts) | `recurrence_ranger.extract` | about 68 min (0.85 s per text) |
 | Report and evidence audit | `recurrence_ranger.report`, `recurrence_ranger.evidence_audit` | under 1 s |
 | Summary page | open `docs/agentic-view.html` | instant, static HTML |
 
-A complete analysis from nothing therefore takes two to two and a quarter
-hours, almost all of it local model time. The other 1,113 prompts are exact
-short inputs such as `/exit` or `continue`, labelled without the model. With
-`corpus --carry-labels`, a later run sends only new or changed prompts to the
-model. The model rates come from
+A complete analysis from nothing therefore takes about two hours, almost all
+of it local model time. The other 1,113 prompts are exact short inputs such as
+`/exit` or `continue`, labelled without the model, and a repeated text is sent
+to the model only once. With `corpus --carry-labels`, a later run sends only
+new or changed prompts to the model. The model rates come from
 [PERFORMANCE_REVIEW.md](docs/PERFORMANCE_REVIEW.md). The first real run took
 longer, 2 h 5 min for triage and 1 h 21 min for extraction by the recorded
 timestamps, because the fixes behind those rates landed during it.
