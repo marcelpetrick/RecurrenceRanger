@@ -80,8 +80,8 @@ Marcel's current ordered work request is:
 ## Local pipeline and coverage gate
 
 [localpipeline.sh](localpipeline.sh) is the single entry point for every code
-change, and `.github/workflows/ci.yml` runs the same script on GitHub. Measured
-on 2026-09-22 with Python 3.14.7:
+change, and `.github/workflows/local-pipeline.yml` runs the same script on
+GitHub. Measured on 2026-09-22 with Python 3.14.7:
 
 | Stage | Pinned tool | Command |
 | --- | --- | --- |
@@ -96,8 +96,8 @@ on 2026-09-22 with Python 3.14.7:
 
 The gate compares the measured percentage strictly, so exactly 98% fails.
 `COVERAGE_MINIMUM` and `COVERAGE_REPORT` override the threshold and report path.
-The measured result is 100% of 1,071 statements and 332 branches across `src`
-and `scripts`, from 107 tests; the report file itself is not committed. The
+The measured result is 100% of 1,278 statements and 390 branches across `src`
+and `scripts`, from 152 tests; the report file itself is not committed. The
 first stage fails when an installed tool drifts from its pin, so a local run
 and a CI run check the same code with the same tools.
 
