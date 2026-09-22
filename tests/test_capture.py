@@ -282,3 +282,15 @@ def test_a_file_row_without_a_generation_is_marked_missing(tmp_path):
     ).fetchone() == (1,)
     assert store.db.execute("SELECT COUNT(*) FROM pending_fragments").fetchone() == (0,)
     store.close()
+
+
+def test_a_record_nested_too_deeply_does_not_stop_capture(tmp_path):
+    source, path, store, collector = setup(tmp_path)
+    deep = b"[" * 1_000_000 + b"]" * 1_000_000 + b"\n"
+    path.write_bytes(deep + line(claude_message("after it")))
+    result = collector.scan_once([source])
+    assert (result.records, result.errors) == (2, 0)
+    assert store.db.execute(
+        "SELECT parse_status FROM raw_records ORDER BY start_offset"
+    ).fetchall() == [("malformed",), ("parsed",)]
+    assert store.db.execute("SELECT text FROM messages").fetchall() == [("after it",)]

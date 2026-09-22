@@ -209,3 +209,16 @@ def test_session_project_is_read_only_from_a_rollout_header():
     assert codex_session_project(
         ROLLOUT, _line({"type": "session_meta", "payload": {"id": "x", "cwd": "/repo"}})
     ) == ("12345678-1234-1234-1234-123456789012", "/repo")
+
+
+# Far deeper than any interpreter stack allows, so decoding always overflows.
+TOO_DEEP = b'{"type":"user","message":' + b"[" * 1_000_000 + b"]" * 1_000_000 + b"}"
+
+
+def test_a_record_nested_too_deeply_is_malformed_not_fatal():
+    assert parse_record("claude", CLAUDE, TOO_DEEP) == (
+        "malformed",
+        "record nests too deeply to decode",
+        None,
+    )
+    assert codex_session_project(ROLLOUT, TOO_DEEP) is None

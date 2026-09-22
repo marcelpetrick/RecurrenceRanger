@@ -59,7 +59,7 @@ def codex_session_project(path: Path, data: bytes) -> tuple[str, str] | None:
     """Read project metadata from the rollout header when available."""
     try:
         record = json.loads(data)
-    except (UnicodeError, json.JSONDecodeError):
+    except (UnicodeError, json.JSONDecodeError, RecursionError):
         return None
     if not isinstance(record, dict) or record.get("type") != "session_meta":
         return None
@@ -70,7 +70,19 @@ def codex_session_project(path: Path, data: bytes) -> tuple[str, str] | None:
 
 
 def parse_record(tool: str, path: Path, data: bytes) -> tuple[str, str | None, Message | None]:
-    """Return parse status, error, and optional message without discarding source bytes."""
+    """Return parse status, error, and optional message without discarding source bytes.
+
+    Decoding and re-encoding recurse once per nesting level, so a deeply nested line raises
+    RecursionError. That is a property of the record, not of the collector: it is reported
+    as malformed like any other undecodable line instead of aborting the whole scan.
+    """
+    try:
+        return _parse(tool, path, data)
+    except RecursionError:
+        return "malformed", "record nests too deeply to decode", None
+
+
+def _parse(tool: str, path: Path, data: bytes) -> tuple[str, str | None, Message | None]:
     try:
         record = json.loads(data)
     except (UnicodeError, json.JSONDecodeError) as error:

@@ -444,3 +444,22 @@ def test_a_prompt_repeated_in_one_session_carries_one_set_of_decisions(tmp_path)
         assert db.execute(
             "SELECT prompt_id,theme FROM guideline_occurrences ORDER BY prompt_id"
         ).fetchall() == [(1, "TESTS"), (2, "TESTS")]
+
+
+def test_a_codex_header_nested_too_deeply_does_not_stop_the_derivation(tmp_path):
+    home = tmp_path / "codex"
+    sessions = home / "sessions"
+    sessions.mkdir(parents=True)
+    message = _line(
+        {
+            "type": "response_item",
+            "payload": {"type": "message", "role": "user", "content": "add tests"},
+        }
+    )
+    deep = b"[" * 1_000_000 + b"]" * 1_000_000 + b"\n"
+    (sessions / "rollout-a-12345678-1234-1234-1234-123456789012.jsonl").write_bytes(deep + message)
+    source_path = tmp_path / "capture.sqlite3"
+    store = Store(source_path)
+    Collector(store).scan_once([Source("codex", "Codex", home, "test")])
+    store.close()
+    assert derive(source_path, tmp_path / "corpus.sqlite3")["prompts"] == [("human", 1)]
