@@ -173,3 +173,27 @@ def test_a_read_only_database_opens_the_named_file(tmp_path, name):
             db.execute("DELETE FROM sources")
     finally:
         db.close()
+
+
+def test_a_backup_closes_its_target_connection(tmp_path, monkeypatch):
+    store = Store(tmp_path / "db.sqlite3")
+    opened = []
+    connect = sqlite3.connect
+
+    class Tracked(sqlite3.Connection):
+        closed = False
+
+        def close(self):
+            self.closed = True
+            super().close()
+
+    def tracking(path, *args, **kwargs):
+        connection = connect(path, *args, factory=Tracked, **kwargs)
+        opened.append(connection)
+        return connection
+
+    monkeypatch.setattr("recurrence_ranger.store.sqlite3.connect", tracking)
+    store.backup(tmp_path / "backup.sqlite3")
+    monkeypatch.undo()
+    store.close()
+    assert [connection.closed for connection in opened] == [True]

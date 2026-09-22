@@ -138,8 +138,12 @@ class Store:
     def backup(self, target: Path) -> None:
         target = target.expanduser()
         target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        with sqlite3.connect(target) as other:
+        # A connection used as a context manager only commits; it has to be closed as well.
+        other = sqlite3.connect(target)
+        try:
             self.db.backup(other)
+        finally:
+            other.close()
         target.chmod(0o600)
 
     def status(self) -> list[dict]:
