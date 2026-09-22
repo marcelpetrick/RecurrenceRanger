@@ -78,6 +78,22 @@ its own tests, and the gate was re-run on both supported Python versions.
 | 16 | Low (coverage of the check) | The drift check read only the development extra, so the `setuptools` pin that decides how the released wheel is built was never compared. | Compare the build requirements too, through one shared parser. |
 | 17 | Low (input handling) | A requirement's name went into the index URL verbatim, so a future pin carrying an extra or a marker would have been queried as a project and reported as unreadable rather than as a malformed pin. | Require a bare project name and normalise it the way the index spells it. |
 
+## Findings from the full-state review
+
+A review of the whole code base as it stood at 0.0.87, rather than of one branch. Each
+finding was reproduced before it was fixed, each fix is its own commit with a test that fails
+without it, and the gate passed after every commit.
+
+| # | Severity | Finding | Fix |
+| --- | --- | --- | --- |
+| 18 | High (data loss) | The derivation dropped the model tables before sqlite3 began its implicit transaction, so the drops committed on their own. Any failure afterwards restored the prompts but left every relevance label, review and theme deleted. | Begin the transaction explicitly, so the replacement commits or rolls back as one. |
+| 19 | High (availability) | A deeply nested JSON line raised `RecursionError`, which capture did not catch. The line aborted the whole scan, and since it stays in the file, every later run stopped at it: capture of every source halted. | Report such a record as malformed and keep its bytes, in capture and in the derivation. |
+| 20 | Medium (correctness) | Carrying decisions by profile, session and text merged the themes of two prompts that repeat the same text, inserted a shared theme twice and failed on the primary key; through finding 18 that also deleted the labels. | Take every carried decision for a key from the earliest earlier prompt. |
+| 21 | Medium (design) | The exclusion of this analysis's own sessions was copied as raw SQL into five queries, so changing one copy would have made the extraction queue, its count and the reported themes disagree. | State the projects and the condition once, beside the shared table definitions. |
+| 22 | Low (input handling) | Read-only databases were opened as an unescaped `file:` URI, so a path containing `#`, `?` or `%` opened a different file. | Open them through one helper that quotes the path. |
+| 23 | Low (resource lifetime) | The backup target was opened in a `with` block, which commits but never closes a sqlite3 connection. | Close it explicitly. |
+| 24 | Low (documentation) | The plan named a `ci.yml` workflow that does not exist, next to outdated coverage numbers. | Name `local-pipeline.yml` and state the current measurement. |
+
 ## Deliberately not done
 
 - **Larger batches.** Measured against the real corpus at four concurrent requests: five
