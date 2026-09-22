@@ -1,0 +1,36 @@
+# -----------------------------------------------------------------------------
+# Recurrence Ranger dependency drift
+#
+# Every pin in this repository is exact, which also means it never moves on its
+# own. This weekly check reports pins that are behind their latest stable release
+# and fails so the run is visible. It deliberately opens no pull request: an
+# update here is a change like any other and needs its own commit, its own patch
+# version and a passing pipeline.
+# -----------------------------------------------------------------------------
+name: Dependency Drift
+
+on:
+  schedule:
+    # Mondays, early enough to be waiting at the start of the week.
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: Pins against the latest releases
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Report pins that are behind
+        run: python scripts/check_latest.py
