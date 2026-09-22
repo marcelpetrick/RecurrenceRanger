@@ -96,3 +96,12 @@ def test_batches_run_serially_or_in_parallel():
     assert len(threads) > 1
     single = localmodel.map_batches([[7]], note_thread, 4)
     assert single == [7]
+
+
+def test_only_the_first_row_of_each_unanswered_text_is_asked():
+    rows = [(1, "a"), (2, "b"), (3, "a"), (4, "c"), (5, "b")]
+    assert localmodel.first_of_each_text(rows, {"c"}) == [(1, "a"), (2, "b")]
+
+
+def test_no_batches_means_no_work():
+    assert localmodel.map_batches([], lambda batch: batch, 4) == []

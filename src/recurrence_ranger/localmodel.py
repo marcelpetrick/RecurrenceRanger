@@ -6,7 +6,7 @@ import json
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Container, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypeVar
 
@@ -49,13 +49,31 @@ def batches(rows: Sequence[Batch], size: int) -> list[Sequence[Batch]]:
     return [rows[start : start + size] for start in range(0, len(rows), size)]
 
 
+def first_of_each_text(
+    rows: Sequence[tuple[int, str]], answered: Container[str]
+) -> list[tuple[int, str]]:
+    """Return the first row of every text that has no answer yet.
+
+    The model sees nothing but the text, so a repeated text needs one answer, not one per
+    prompt. Asking again costs a request and can return a different answer for the same
+    words, as it did for 71 of 178 repeated texts in the first run.
+    """
+    seen: set[str] = set()
+    first = []
+    for row_id, text in rows:
+        if text not in answered and text not in seen:
+            seen.add(text)
+            first.append((row_id, text))
+    return first
+
+
 def map_batches(
     work: Sequence[Sequence[Batch]],
     worker: Callable[[Sequence[Batch]], Result],
     concurrency: int,
 ) -> list[Result]:
     """Answer several batches at once; the caller keeps all database writes to itself."""
-    if concurrency == 1 or len(work) == 1:
+    if concurrency == 1 or len(work) <= 1:
         return [worker(batch) for batch in work]
     with ThreadPoolExecutor(max_workers=min(concurrency, len(work))) as pool:
         return list(pool.map(worker, work))

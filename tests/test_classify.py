@@ -243,3 +243,119 @@ def test_the_answer_schema_demands_one_label_per_prompt():
     schema = classify._format(3)["properties"]["labels"]
     assert (schema["minItems"], schema["maxItems"]) == (3, 3)
     assert set(schema["items"]["enum"]) == set(classify.LABELS)
+
+
+def test_a_repeated_text_is_asked_once_and_labelled_alike(tmp_path, monkeypatch):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
+        db.executemany(
+            "INSERT INTO prompts VALUES (?,?,'human')",
+            [(1, "add tests"), (2, "weather"), (3, "add tests"), (4, "add tests"), (5, "weather")],
+        )
+    calls = []
+
+    def fake_request(rows, model, endpoint):
+        calls.append([row_id for row_id, _ in rows])
+        return {
+            row_id: "software_instruction" if "tests" in text else "nonsoftware"
+            for row_id, text in rows
+        }
+
+    monkeypatch.setattr(classify, "_request", fake_request)
+    # Two prompts per round, so repeats arrive both within a round and in later rounds.
+    summary = classify.classify(path, batch_size=2, concurrency=1)
+    assert calls == [[1, 2]]
+    assert summary["reused_same_text"] == 3
+    with sqlite3.connect(path) as db:
+        assert db.execute(
+            "SELECT prompt_id,label,note FROM relevance ORDER BY prompt_id"
+        ).fetchall() == [
+            (1, "software_instruction", None),
+            (2, "nonsoftware", None),
+            (3, "software_instruction", None),
+            (4, "software_instruction", None),
+            (5, "nonsoftware", None),
+        ]
+
+
+def test_an_earlier_answer_is_reused_only_from_the_same_model_and_without_error(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
+        db.executemany(
+            "INSERT INTO prompts VALUES (?,?,'human')",
+            [
+                (1, "add tests"),
+                (2, "add CI"),
+                (3, "add docs"),
+                (4, "add tests"),
+                (5, "add CI"),
+                (6, "add docs"),
+            ],
+        )
+    with sqlite3.connect(path) as db:
+        classify.derived.create(db, classify.derived.RELEVANCE)
+        db.executemany(
+            "INSERT INTO relevance VALUES (?,?,?,?,'earlier',?,?)",
+            [
+                (1, "software_instruction", "qwen3.5:4b", classify.PROMPT_VERSION, 1, None),
+                (
+                    2,
+                    "uncertain",
+                    "qwen3.5:4b",
+                    classify.PROMPT_VERSION,
+                    0,
+                    "model output error: KeyError",
+                ),
+                (3, "software_other", "another-model", classify.PROMPT_VERSION, 0, None),
+            ],
+        )
+    calls = []
+
+    def fake_request(rows, model, endpoint):
+        calls.append([row_id for row_id, _ in rows])
+        return {row_id: "software_instruction" for row_id, _ in rows}
+
+    monkeypatch.setattr(classify, "_request", fake_request)
+    assert classify.classify(path)["reused_same_text"] == 1
+    assert calls == [[5, 6]]
+    with sqlite3.connect(path) as db:
+        # The reused answer keeps its truncation flag; the failed and foreign ones are asked.
+        assert db.execute(
+            "SELECT prompt_id,label,model,truncated FROM relevance WHERE prompt_id>3 "
+            "ORDER BY prompt_id"
+        ).fetchall() == [
+            (4, "software_instruction", "qwen3.5:4b", 1),
+            (5, "software_instruction", "qwen3.5:4b", 0),
+            (6, "software_instruction", "qwen3.5:4b", 0),
+        ]
+
+
+def test_a_failed_answer_is_not_reused_for_a_later_repeat(tmp_path, monkeypatch):
+    path = tmp_path / "corpus.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE prompts (id INTEGER PRIMARY KEY,text TEXT,authorship TEXT)")
+        db.executemany(
+            "INSERT INTO prompts VALUES (?,?,'human')", [(1, "add tests"), (2, "add tests")]
+        )
+    calls = []
+
+    def fails_once(rows, model, endpoint):
+        calls.append([row_id for row_id, _ in rows])
+        if len(calls) == 1:
+            raise ValueError("model returned wrong number of labels")
+        return {row_id: "software_instruction" for row_id, _ in rows}
+
+    monkeypatch.setattr(classify, "_request", fails_once)
+    assert classify.classify(path, batch_size=1, concurrency=1)["reused_same_text"] == 0
+    assert calls == [[1], [2]]
+    with sqlite3.connect(path) as db:
+        assert db.execute(
+            "SELECT prompt_id,label,note FROM relevance ORDER BY prompt_id"
+        ).fetchall() == [
+            (1, "uncertain", "model output error: ValueError"),
+            (2, "software_instruction", None),
+        ]

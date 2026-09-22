@@ -148,7 +148,17 @@ def classify(
             db.execute("ALTER TABLE relevance ADD COLUMN note TEXT")
         db.commit()
         fast_count = _apply_fast_labels(db)
+        # Earlier answers from this model and prompt version, by text, so a repeated text
+        # takes the same label without another request. Failed answers are asked again.
+        known: dict[str, tuple[str, int]] = {}
+        for text, label, truncated in db.execute(
+            """SELECT p.text,r.label,r.truncated FROM prompts p JOIN relevance r ON r.prompt_id=p.id
+               WHERE r.model=? AND r.prompt_version=? AND r.note IS NULL ORDER BY p.id""",
+            (model, PROMPT_VERSION),
+        ):
+            known.setdefault(text, (label, truncated))
         total = 0
+        reused = 0
         while True:
             wanted = batch_size * concurrency
             rows = db.execute(
@@ -158,38 +168,33 @@ def classify(
             ).fetchall()
             if not rows:
                 break
-            work = localmodel.batches(rows, batch_size)
+            ask = localmodel.first_of_each_text(rows, known)
+            work = localmodel.batches(ask, batch_size)
             answers = localmodel.map_batches(
                 work, lambda batch: _classify_rows(batch, model, endpoint), concurrency
             )
-            labels: dict[int, tuple[str, str | None]] = {}
-            truncated: dict[int, int] = {}
+            fresh: dict[str, tuple[str, int, str | None]] = {}
             for batch, answer in zip(work, answers, strict=True):
-                labels.update(answer)
                 budget = localmodel.item_chars(len(batch))
-                truncated.update({row_id: int(len(text) > budget) for row_id, text in batch})
+                for row_id, text in batch:
+                    label, note = answer[row_id]
+                    fresh[text] = (label, int(len(text) > budget), note)
+                    if note is None:
+                        known[text] = (label, fresh[text][1])
+            reused += len(rows) - len(ask)
+            decisions = []
+            for row_id, text in rows:
+                label, truncated, note = fresh[text] if text in fresh else (*known[text], None)
+                decisions.append((row_id, label, model, PROMPT_VERSION, utc_now(), truncated, note))
             with db:
-                db.executemany(
-                    "INSERT INTO relevance VALUES (?,?,?,?,?,?,?)",
-                    [
-                        (
-                            row_id,
-                            labels[row_id][0],
-                            model,
-                            PROMPT_VERSION,
-                            utc_now(),
-                            truncated[row_id],
-                            labels[row_id][1],
-                        )
-                        for row_id, _ in rows
-                    ],
-                )
+                db.executemany("INSERT INTO relevance VALUES (?,?,?,?,?,?,?)", decisions)
             total += len(rows)
             print(json.dumps({"classified": total, "last_prompt_id": rows[-1][0]}), flush=True)
             if limit and total >= limit:
                 break
         return {
             "classified_this_run": total,
+            "reused_same_text": reused,
             "exact_short_inputs": fast_count,
             "labels": db.execute(
                 "SELECT label,COUNT(*) FROM relevance GROUP BY label ORDER BY label"

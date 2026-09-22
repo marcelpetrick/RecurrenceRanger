@@ -144,7 +144,24 @@ def extract(
             derived.RECALL_CANDIDATES,
         )
         db.commit()
+        # Earlier theme lists from this model and extractor version, by text, so a repeated
+        # text takes the same themes without another request. Failed answers are asked again.
+        known: dict[str, list[str]] = {}
+        for prompt_id, text in db.execute(
+            """SELECT p.id,p.text FROM prompts p JOIN extraction_reviews x ON x.prompt_id=p.id
+               WHERE x.model=? AND x.extractor_version=? AND x.note IS NULL ORDER BY p.id""",
+            (model, EXTRACTOR_VERSION),
+        ).fetchall():
+            if text not in known:
+                known[text] = [
+                    theme
+                    for (theme,) in db.execute(
+                        "SELECT theme FROM guideline_occurrences WHERE prompt_id=? ORDER BY theme",
+                        (prompt_id,),
+                    )
+                ]
         total = 0
+        reused = 0
         while True:
             wanted = batch_size * concurrency
             rows = db.execute(
@@ -160,15 +177,24 @@ def extract(
             ).fetchall()
             if not rows:
                 break
-            work = localmodel.batches(rows, batch_size)
-            outcomes: dict[int, tuple[list[str], str | None]] = {}
-            for answer in localmodel.map_batches(
-                work, lambda batch: _extract_rows(batch, model, endpoint), concurrency
+            ask = localmodel.first_of_each_text(rows, known)
+            work = localmodel.batches(ask, batch_size)
+            fresh: dict[str, tuple[list[str], str | None]] = {}
+            for batch, answer in zip(
+                work,
+                localmodel.map_batches(
+                    work, lambda batch: _extract_rows(batch, model, endpoint), concurrency
+                ),
+                strict=True,
             ):
-                outcomes.update(answer)
+                for row_id, text in batch:
+                    fresh[text] = answer[row_id]
+                    if answer[row_id][1] is None:
+                        known[text] = answer[row_id][0]
+            reused += len(rows) - len(ask)
             with db:
-                for row_id, _ in rows:
-                    codes, note = outcomes[row_id]
+                for row_id, text in rows:
+                    codes, note = fresh[text] if text in fresh else (known[text], None)
                     db.execute(
                         "INSERT INTO extraction_reviews VALUES (?,?,?,?,?)",
                         (row_id, model, EXTRACTOR_VERSION, utc_now(), note),
@@ -183,6 +209,7 @@ def extract(
                 break
         return {
             "reviewed_this_run": total,
+            "reused_same_text": reused,
             "themes": db.execute(
                 "SELECT theme,COUNT(*) FROM guideline_occurrences "
                 "GROUP BY theme ORDER BY COUNT(*) DESC"

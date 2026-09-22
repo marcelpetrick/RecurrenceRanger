@@ -193,3 +193,102 @@ def test_the_answer_schema_demands_one_theme_list_per_prompt():
     schema = extract._format(5)["properties"]["themes"]
     assert (schema["minItems"], schema["maxItems"]) == (5, 5)
     assert set(schema["items"]["items"]["enum"]) == set(extract.THEMES)
+
+
+def test_a_repeated_text_is_extracted_once_and_tagged_alike(tmp_path, monkeypatch):
+    path = _corpus_with_prompts(
+        tmp_path / "corpus.sqlite3",
+        [(1, "add tests and CI"), (2, "move button"), (3, "add tests and CI"), (4, "move button")],
+    )
+    calls = []
+
+    def fake_request(rows, model, endpoint):
+        calls.append([row_id for row_id, _ in rows])
+        return {row_id: ["TESTS", "CI_LOCAL"] if "tests" in text else [] for row_id, text in rows}
+
+    monkeypatch.setattr(extract, "_request", fake_request)
+    summary = extract.extract(path, batch_size=2, concurrency=1)
+    assert calls == [[1, 2]]
+    assert summary["reused_same_text"] == 2
+    with sqlite3.connect(path) as db:
+        assert db.execute(
+            "SELECT prompt_id,theme FROM guideline_occurrences ORDER BY prompt_id,theme"
+        ).fetchall() == [(1, "CI_LOCAL"), (1, "TESTS"), (3, "CI_LOCAL"), (3, "TESTS")]
+        assert db.execute(
+            "SELECT COUNT(*) FROM extraction_reviews WHERE note IS NULL"
+        ).fetchone() == (4,)
+
+
+def test_an_earlier_theme_list_is_reused_but_a_failed_one_is_asked_again(tmp_path, monkeypatch):
+    path = _corpus_with_prompts(
+        tmp_path / "corpus.sqlite3",
+        [(1, "add tests"), (2, "pin versions"), (3, "add tests"), (4, "pin versions")],
+    )
+    with sqlite3.connect(path) as db:
+        extract.derived.create(
+            db, extract.derived.EXTRACTION_REVIEWS, extract.derived.GUIDELINE_OCCURRENCES
+        )
+        db.execute(
+            "INSERT INTO extraction_reviews VALUES (1,'qwen3.5:4b',?,'earlier',NULL)",
+            (extract.EXTRACTOR_VERSION,),
+        )
+        db.execute("INSERT INTO guideline_occurrences VALUES (1,'TESTS')")
+        db.execute(
+            "INSERT INTO extraction_reviews VALUES "
+            "(2,'qwen3.5:4b',?,'earlier','model output error: KeyError')",
+            (extract.EXTRACTOR_VERSION,),
+        )
+    calls = []
+
+    def fake_request(rows, model, endpoint):
+        calls.append([row_id for row_id, _ in rows])
+        return {row_id: ["PIN_VERSIONS"] for row_id, _ in rows}
+
+    monkeypatch.setattr(extract, "_request", fake_request)
+    assert extract.extract(path)["reused_same_text"] == 1
+    assert calls == [[4]]
+    with sqlite3.connect(path) as db:
+        assert db.execute(
+            "SELECT prompt_id,theme FROM guideline_occurrences WHERE prompt_id>2 ORDER BY prompt_id"
+        ).fetchall() == [(3, "TESTS"), (4, "PIN_VERSIONS")]
+
+
+def test_a_failed_theme_list_is_not_reused_for_a_later_repeat(tmp_path, monkeypatch):
+    path = _corpus_with_prompts(tmp_path / "corpus.sqlite3", [(1, "add tests"), (2, "add tests")])
+    calls = []
+
+    def fails_once(rows, model, endpoint):
+        calls.append([row_id for row_id, _ in rows])
+        if len(calls) == 1:
+            raise ValueError("model returned an unknown theme")
+        return {row_id: ["TESTS"] for row_id, _ in rows}
+
+    monkeypatch.setattr(extract, "_request", fails_once)
+    assert extract.extract(path, batch_size=1, concurrency=1)["reused_same_text"] == 0
+    assert calls == [[1], [2]]
+    with sqlite3.connect(path) as db:
+        assert db.execute(
+            "SELECT prompt_id,note FROM extraction_reviews ORDER BY prompt_id"
+        ).fetchall() == [(1, "model output error: ValueError"), (2, None)]
+
+
+def test_the_earliest_of_several_earlier_theme_lists_is_reused(tmp_path, monkeypatch):
+    path = _corpus_with_prompts(
+        tmp_path / "corpus.sqlite3", [(1, "add tests"), (2, "add tests"), (3, "add tests")]
+    )
+    with sqlite3.connect(path) as db:
+        extract.derived.create(
+            db, extract.derived.EXTRACTION_REVIEWS, extract.derived.GUIDELINE_OCCURRENCES
+        )
+        for prompt_id, theme in ((1, "TESTS"), (2, "COVERAGE")):
+            db.execute(
+                "INSERT INTO extraction_reviews VALUES (?,'qwen3.5:4b',?,'earlier',NULL)",
+                (prompt_id, extract.EXTRACTOR_VERSION),
+            )
+            db.execute("INSERT INTO guideline_occurrences VALUES (?,?)", (prompt_id, theme))
+    monkeypatch.setattr(extract, "_request", lambda *args: pytest.fail("must not ask"))
+    assert extract.extract(path)["reused_same_text"] == 1
+    with sqlite3.connect(path) as db:
+        assert db.execute(
+            "SELECT theme FROM guideline_occurrences WHERE prompt_id=3"
+        ).fetchall() == [("TESTS",)]
