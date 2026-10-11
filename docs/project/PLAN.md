@@ -90,7 +90,7 @@ GitHub. Measured on 2026-09-22 with Python 3.14.7:
 | Lint | `ruff==0.16.8` | `ruff check src tests scripts` |
 | Static analysis | `mypy==2.3.1` | `mypy` (`src` and `scripts`, untyped definitions rejected) |
 | Tests | `pytest==9.1.1` | `coverage run -m pytest -q` |
-| Coverage report | `coverage==7.16.1` | `coverage report` and `coverage json` |
+| Coverage report | `coverage==7.16.2` | `coverage report` and `coverage json` |
 | Coverage gate | this repository | `scripts/coverage_gate.py coverage.json --minimum 98` |
 | Version history | this repository | `scripts/versioning.py check` |
 
