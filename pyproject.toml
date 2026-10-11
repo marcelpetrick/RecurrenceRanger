@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "recurrence-ranger"
-version = "0.0.102"
+version = "0.0.103"
 description = "Private local capture of Claude and Codex conversations"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -19,7 +19,7 @@ Homepage = "https://github.com/marcelpetrick/RecurrenceRanger"
 dev = [
     "build==1.6.1",
     "coverage==7.16.2",
-    "mypy==2.3.1",
+    "mypy==2.4.0",
     "pytest==9.1.1",
     "ruff==0.16.8",
 ]
