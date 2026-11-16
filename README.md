@@ -6,7 +6,7 @@
 [![Dependency Drift](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/dependency-drift.yml/badge.svg)](https://github.com/marcelpetrick/RecurrenceRanger/actions/workflows/dependency-drift.yml)
 [![Latest Release](https://img.shields.io/github/v/release/marcelpetrick/RecurrenceRanger?sort=semver)](https://github.com/marcelpetrick/RecurrenceRanger/releases/latest)
 [![License: GPL v3 or later](https://img.shields.io/badge/license-GPLv3%20or%20later-blue.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab.svg)](https://www.python.org/)
+[![Python 3.15+](https://img.shields.io/badge/Python-3.15%2B-3776ab.svg)](https://www.python.org/)
 [![Coverage: 100%](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](localpipeline.sh)
 [![Checked with mypy](https://img.shields.io/badge/mypy-checked-2a6db2.svg)](https://mypy-lang.org/)
 [![Linted with ruff](https://img.shields.io/badge/ruff-linted-d7ff64.svg)](https://docs.astral.sh/ruff/)
@@ -124,7 +124,7 @@ Measured capture coverage and its limits are in
 
 ## Setup and first run
 
-Requires Python 3.11 or newer. From this repository:
+Requires Python 3.15 or newer; development uses Python 3.15.2. From this repository:
 
 ```sh
 python3 -m venv .venv
@@ -178,10 +178,10 @@ coverage gate and the version history:
 The gate fails unless overall statement and branch coverage is strictly above
 98%. `COVERAGE_MINIMUM` and `COVERAGE_REPORT` override the threshold and the
 report path, and `PYTHON` selects the interpreter, so the same gate can be run on
-the oldest supported version:
+the current stable version:
 
 ```sh
-PYTHON=python3.11 ./localpipeline.sh
+PYTHON=python3.15 ./localpipeline.sh
 ```
 
 The coverage report itself is not committed.
@@ -189,7 +189,7 @@ The coverage report itself is not committed.
 Three GitHub workflows mirror this locally run script:
 
 - **Local Pipeline** runs `./localpipeline.sh` on every push and pull request,
-  on Python 3.11 and 3.14 so the supported floor stays checked, and keeps each
+  on the current stable Python 3.15 series, and keeps each
   coverage report as an artifact.
 - **Quality** runs the pinned tool check, ruff formatting and lint, and mypy
   for fast feedback without the test suite.

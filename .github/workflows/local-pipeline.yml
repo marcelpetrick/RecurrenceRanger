@@ -7,8 +7,7 @@
 # the one-patch-per-commit version history. The full history is fetched because
 # that last stage inspects every commit.
 #
-# It runs on the lowest Python the project claims to support and on the newest one,
-# so requires-python in pyproject.toml is a checked promise rather than a hope.
+# It runs on the current stable Python series, matching requires-python.
 # -----------------------------------------------------------------------------
 name: Local Pipeline
 
@@ -34,12 +33,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The floor from requires-python, and the version used for development.
-        python-version: ["3.11", "3.14"]
+        # The current stable series; setup-python selects its latest patch release.
+        python-version: ["3.15"]
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The version gate requires linear history, so check the PR head commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Set up Python

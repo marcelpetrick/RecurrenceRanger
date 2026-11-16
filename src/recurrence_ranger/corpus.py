@@ -80,7 +80,7 @@ def _seconds(value: str | None) -> float | None:
             number = int(value)
             return number / 1000 if number > 10**12 else float(number)
         return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
-    except (ValueError, OverflowError):
+    except ValueError, OverflowError:
         return None
 
 
@@ -95,7 +95,7 @@ def _decision(candidate: Candidate, raw: bytes | None) -> tuple[str, str]:
         # reads the stored bytes for them alone.
         try:
             record = json.loads(raw or b"")
-        except (UnicodeError, json.JSONDecodeError, RecursionError):
+        except UnicodeError, json.JSONDecodeError, RecursionError:
             return "uncertain", "raw record cannot be parsed"
         if record.get("toolUseResult") is not None:
             return "excluded", "tool result"
@@ -219,7 +219,7 @@ def derive(
         for profile, raw in headers:
             try:
                 record = json.loads(raw)
-            except (UnicodeError, json.JSONDecodeError, RecursionError):
+            except UnicodeError, json.JSONDecodeError, RecursionError:
                 continue
             if record.get("type") != "session_meta":
                 continue
