@@ -59,7 +59,7 @@ def codex_session_project(path: Path, data: bytes) -> tuple[str, str] | None:
     """Read project metadata from the rollout header when available."""
     try:
         record = json.loads(data)
-    except (UnicodeError, json.JSONDecodeError, RecursionError):
+    except UnicodeError, json.JSONDecodeError, RecursionError:
         return None
     if not isinstance(record, dict) or record.get("type") != "session_meta":
         return None

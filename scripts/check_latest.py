@@ -46,7 +46,7 @@ def pypi_latest(name: str) -> str | None:
             timeout=TIMEOUT_SECONDS,
         ) as response:
             release = json.load(response)
-    except (urllib.error.URLError, TimeoutError, ConnectionError, json.JSONDecodeError):
+    except urllib.error.URLError, TimeoutError, ConnectionError, json.JSONDecodeError:
         return None
     version = release.get("info", {}).get("version")
     if not isinstance(version, str):

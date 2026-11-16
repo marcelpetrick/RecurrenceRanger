@@ -6,7 +6,7 @@ set -eu
 COVERAGE_MINIMUM=${COVERAGE_MINIMUM:-98}
 COVERAGE_REPORT=${COVERAGE_REPORT:-coverage.json}
 
-# PYTHON selects the interpreter, so the gate can be run on the oldest supported
+# PYTHON selects the interpreter, so the gate can be run on the current stable
 # version as well, which is what hosted CI does.
 if [ -z "${PYTHON:-}" ]; then
   if [ -x .venv/bin/python ]; then

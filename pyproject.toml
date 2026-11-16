@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "recurrence-ranger"
-version = "0.0.105"
+version = "0.0.106"
 description = "Private local capture of Claude and Codex conversations"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.15"
 license = "GPL-3.0-or-later"
 authors = [{ name = "Marcel Petrick", email = "mail@marcelpetrick.it" }]
 dependencies = []
@@ -36,7 +36,7 @@ pythonpath = ["src", "scripts"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py315"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
@@ -52,7 +52,7 @@ exclude_also = ["if __name__ == .__main__.:"]
 
 [tool.mypy]
 files = ["src", "scripts"]
-python_version = "3.11"
+python_version = "3.15"
 check_untyped_defs = true
 disallow_untyped_defs = true
 warn_redundant_casts = true

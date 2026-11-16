@@ -8,7 +8,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable, Container, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, TypeVar
+from typing import Any
 
 TIMEOUT_SECONDS = 300
 TRANSPORT_ATTEMPTS = 3
@@ -20,9 +20,6 @@ MINIMUM_ITEM_CHARS = 1_200
 # Measured on one local GPU: four concurrent requests answer about twice as fast as
 # one, while eight queue up and get slower again.
 DEFAULT_CONCURRENCY = 4
-
-Batch = TypeVar("Batch")
-Result = TypeVar("Result")
 
 
 class EndpointUnavailable(RuntimeError):
@@ -45,7 +42,7 @@ def item_chars(count: int) -> int:
     return max(MINIMUM_ITEM_CHARS, REQUEST_CHARS // count)
 
 
-def batches(rows: Sequence[Batch], size: int) -> list[Sequence[Batch]]:
+def batches[Batch](rows: Sequence[Batch], size: int) -> list[Sequence[Batch]]:
     return [rows[start : start + size] for start in range(0, len(rows), size)]
 
 
@@ -67,7 +64,7 @@ def first_of_each_text(
     return first
 
 
-def map_batches(
+def map_batches[Batch, Result](
     work: Sequence[Sequence[Batch]],
     worker: Callable[[Sequence[Batch]], Result],
     concurrency: int,
